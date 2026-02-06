@@ -7,7 +7,7 @@ import mermaid from 'mermaid'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { generateImage } from '../../actions/image'
-import { generateLearningPlan } from '../../actions/generate'
+import { generateLearningPlan, generatePlanContent } from '../../actions/generate'
 
 // Initialize Mermaid
 mermaid.initialize({
@@ -160,11 +160,36 @@ export default function PlanClient({ plan, chapters }: { plan: any, chapters: an
     const [currentIndex, setCurrentIndex] = useState(0)
     const [completed, setCompleted] = useState<Set<string>>(new Set())
     const [generatingNext, setGeneratingNext] = useState<string | null>(null)
+    const [initializing, setInitializing] = useState(chapters.length === 0)
+
+    // Trigger content generation if plan is new
+    useEffect(() => {
+        if (chapters.length === 0 && plan.status === 'generating') {
+            const init = async () => {
+                try {
+                    console.log("Initializing plan content...")
+                    const res = await generatePlanContent(plan.id)
+                    if (res.success) {
+                        setInitializing(false)
+                        router.refresh()
+                    }
+                } catch (e) {
+                    console.error("Initialization Failed", e)
+                    alert("Failed to generate content. Please try again.")
+                }
+            }
+            init()
+        } else if (chapters.length > 0) {
+            setInitializing(false)
+        }
+    }, [chapters.length, plan.status, plan.id, router])
 
     // Update URL hash for sharing/bookmarking
     useEffect(() => {
-        window.history.replaceState(null, '', `#chapter-${indexToId(currentIndex)}`)
-    }, [currentIndex])
+        if (!initializing && chapters.length > 0) {
+            window.history.replaceState(null, '', `#chapter-${indexToId(currentIndex)}`)
+        }
+    }, [currentIndex, initializing, chapters])
 
     const indexToId = (i: number) => chapters[i]?.id
 
@@ -217,6 +242,19 @@ export default function PlanClient({ plan, chapters }: { plan: any, chapters: an
     const isFinished = completed.has(chapters[chapters.length - 1]?.id)
 
     const currentChapter = chapters[currentIndex]
+
+    if (initializing) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
+                <Loader2 className="w-12 h-12 text-amber-500 animate-spin mb-6" />
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">Designing your custom curriculum...</h2>
+                <p className="text-gray-500 max-w-md">
+                    Crafting {plan.level} level explanations, analogies, and quizzes for "{plan.topic}".
+                </p>
+                <p className="text-xs text-gray-400 mt-8">This takes about 30 seconds.</p>
+            </div>
+        )
+    }
 
     return (
         <div className="max-w-3xl mx-auto px-4 pb-20">

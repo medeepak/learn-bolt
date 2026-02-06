@@ -23,8 +23,41 @@ export async function generateLearningPlan(formData: FormData) {
 
     // NOTE: We now allow guests (user is optional)
 
-    // 1. Generate the Plan Structure using OpenAI
-    console.log("Starting generation for:", topic)
+    // 1. Create the Plan Structure in DB immediately (Fast)
+    console.log("Step 1: Creating initial plan for:", topic)
+    const { data: plan, error: planError } = await supabase
+        .from('learning_plans')
+        .insert({
+            user_id: user?.id || null,
+            topic,
+            urgency,
+            level,
+            language,
+            status: 'generating', // Initial status
+            next_steps: []
+        })
+        .select()
+        .single()
+
+    if (planError) {
+        console.error("DB Plan Error", planError)
+        throw new Error("Failed to init plan")
+    }
+
+    return { success: true, planId: plan.id }
+}
+
+export async function generatePlanContent(planId: string) {
+    const supabase = await createClient()
+
+    // Fetch plan details to get context
+    const { data: plan } = await supabase.from('learning_plans').select('*').eq('id', planId).single()
+    if (!plan) throw new Error("Plan not found")
+
+    const { topic, urgency, level, language } = plan
+
+    console.log("Step 2: Generating content for Plan ID:", planId)
+
     const prompt = `
     You are an expert curriculum designer and explainer for busy, non-academic learners.
     Your job is to make complex topics feel obvious, intuitive, and memorable.
@@ -104,28 +137,7 @@ export async function generateLearningPlan(formData: FormData) {
         throw new Error("AI generated invalid JSON structure: missing chapters")
     }
 
-    // 2. Save to Supabase
-    // Create Plan
-    const { data: plan, error: planError } = await supabase
-        .from('learning_plans')
-        .insert({
-            user_id: user?.id || null, // Allow null for guests
-            topic,
-            urgency,
-            level,
-            language,
-            status: 'generated',
-            next_steps: parsedData.next_steps || [] // New field
-        })
-        .select()
-        .single()
-
-    if (planError) {
-        console.error("DB Plan Error", planError)
-        throw new Error("Failed to save plan")
-    }
-
-    // Create Chapters
+    // 3. Save Chapters
     const chaptersToInsert = parsedData.chapters.map((ch: any, index: number) => ({
         plan_id: plan.id,
         title: ch.title,
@@ -151,6 +163,11 @@ export async function generateLearningPlan(formData: FormData) {
         throw new Error("Failed to save chapters")
     }
 
-    // redirect(`/plan/${plan.id}`)
-    return { success: true, planId: plan.id }
+    // 4. Update Plan Status
+    await supabase.from('learning_plans').update({
+        status: 'generated',
+        next_steps: parsedData.next_steps || []
+    }).eq('id', planId)
+
+    return { success: true }
 }
