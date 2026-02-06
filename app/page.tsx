@@ -1,65 +1,190 @@
-import Image from "next/image";
+'use client'
+
+import { useState } from 'react'
+import { motion } from 'framer-motion'
+import { ArrowRight, Clock, Zap, BookOpen, Search, User } from 'lucide-react'
+import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import { generateLearningPlan } from './actions/generate'
+import { useEffect } from 'react'
 
 export default function Home() {
+  const [topic, setTopic] = useState('')
+  const [urgency, setUrgency] = useState('2h')
+  const [level, setLevel] = useState('beginner')
+  const [language, setLanguage] = useState('english')
+  const [loading, setLoading] = useState(false)
+  const [status, setStatus] = useState('')
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const supabase = createClient()
+
+  useEffect(() => {
+    const topicParam = searchParams.get('topic')
+    if (topicParam) {
+      setTopic(topicParam)
+    }
+  }, [searchParams])
+
+  const handleGenerate = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!topic.trim()) return
+
+    setLoading(true)
+    setStatus('Designing your curriculum...')
+
+    try {
+      const formData = new FormData()
+      formData.append('topic', topic)
+      formData.append('urgency', urgency)
+      formData.append('level', level)
+      formData.append('language', language)
+
+      const res = await generateLearningPlan(formData)
+      if (res && res.success && res.planId) {
+        router.push(`/plan/${res.planId}`)
+      } else {
+        throw new Error("Failed to get plan ID")
+      }
+    } catch (err: any) {
+      console.error("Generation failed", err)
+      alert(`Error: ${err.message || "Something went wrong"}`)
+      setLoading(false)
+      setStatus('')
+    }
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="min-h-screen flex flex-col font-sans">
+      {/* Header */}
+      <header className="px-6 py-4 flex justify-between items-center border-b border-gray-100 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
+        <div className="flex items-center gap-2 font-semibold text-xl tracking-tight text-gray-900">
+          <Zap className="w-5 h-5 text-amber-500 fill-amber-500" />
+          <span>Emergency Learning</span>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+        <nav className="flex items-center gap-6">
+          <Link href="/library" className="text-sm font-medium text-gray-600 hover:text-gray-900">
+            Library
+          </Link>
+          <Link href="/login" className="text-sm font-medium text-gray-600 hover:text-gray-900">
+            Log in
+          </Link>
+          <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500">
+            <User className="w-4 h-4" />
+          </div>
+        </nav>
+      </header>
+
+      {/* Hero Section */}
+      <main className="flex-1 flex flex-col items-center justify-center px-4 py-12 sm:py-24 bg-gradient-to-b from-gray-50 to-white">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="w-full max-w-2xl text-center space-y-8"
+        >
+          <div className="space-y-4">
+            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-gray-900">
+              Learn anything, <span className="text-amber-600">fast.</span>
+            </h1>
+            <p className="text-lg text-gray-500 max-w-lg mx-auto leading-relaxed">
+              Just-in-time learning plans for when you don&apos;t have time for a course.
+              Visual, concise, and ready in minutes.
+            </p>
+          </div>
+
+          {/* Input Card */}
+          <div className="bg-white p-2 rounded-2xl shadow-xl shadow-gray-200/50 border border-gray-100 flex flex-col md:flex-row gap-2">
+            <div className="flex-1 flex items-center px-4 bg-gray-50 rounded-xl">
+              <Search className="w-5 h-5 text-gray-400 mr-3" />
+              <input
+                type="text"
+                placeholder="What do you need to learn urgently?"
+                className="w-full bg-transparent py-4 text-gray-900 placeholder:text-gray-400 focus:outline-none"
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleGenerate(e)}
+              />
+            </div>
+            <button
+              onClick={handleGenerate}
+              disabled={!topic.trim() || loading}
+              className="bg-gray-900 text-white px-8 py-3 rounded-xl font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 min-w-[160px]"
+            >
+              {loading ? (
+                <span className="animate-pulse">{status || 'Thinking...'}</span>
+              ) : (
+                <>
+                  Start Learning
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Context Selectors */}
+          <div className="flex flex-wrap justify-center gap-4 text-sm">
+            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-gray-200 text-gray-600">
+              <Clock className="w-4 h-4 text-gray-400" />
+              <select
+                value={urgency}
+                onChange={(e) => setUrgency(e.target.value)}
+                className="bg-transparent focus:outline-none cursor-pointer appearance-none pr-2 hover:text-gray-900"
+              >
+                <option value="2h">I have 2 hours</option>
+                <option value="today">I have today</option>
+                <option value="week">I have this week</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-gray-200 text-gray-600">
+              <BookOpen className="w-4 h-4 text-gray-400" />
+              <select
+                value={level}
+                onChange={(e) => setLevel(e.target.value)}
+                className="bg-transparent focus:outline-none cursor-pointer appearance-none pr-2 hover:text-gray-900"
+              >
+                <option value="beginner">Beginner</option>
+                <option value="intermediate">Intermediate</option>
+                <option value="advanced">Advanced</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-gray-200 text-gray-600">
+              <span className="text-gray-400 font-serif">Aa</span>
+              <select
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+                className="bg-transparent focus:outline-none cursor-pointer appearance-none pr-2 hover:text-gray-900"
+              >
+                <option value="english">English</option>
+                <option value="hindi">Hindi</option>
+                <option value="hinglish">Hinglish</option>
+                <option value="tamil">Tamil</option>
+                <option value="telugu">Telugu</option>
+                <option value="malayalam">Malayalam</option>
+                <option value="kannada">Kannada</option>
+                <option value="bengali">Bengali</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Examples */}
+          <div className="pt-8 flex flex-wrap justify-center gap-3">
+            <span className="text-gray-400 text-sm py-1">Try:</span>
+            {['Restaurant cash flow', 'React useEffect hook', 'Series A funding'].map((ex) => (
+              <button
+                key={ex}
+                onClick={() => setTopic(ex)}
+                className="text-sm px-3 py-1 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+              >
+                {ex}
+              </button>
+            ))}
+          </div>
+        </motion.div>
       </main>
     </div>
-  );
+  )
 }
