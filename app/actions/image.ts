@@ -15,7 +15,7 @@ export async function generateImage(prompt: string) {
             prompt: `A clear, educational diagram or illustration explaining: ${prompt}. Simple, modern flat style, white background, high quality.`,
             n: 1,
             size: "1024x1024",
-            quality: "standard",
+            quality: "medium",
         });
 
         // @ts-ignore
