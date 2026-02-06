@@ -16,25 +16,31 @@ export async function generateImage(prompt: string) {
             n: 1,
             size: "1024x1024",
             quality: "standard",
-            response_format: "b64_json",
         });
 
         // @ts-ignore
-        console.log("Raw Image Response:", JSON.stringify(response, null, 2))
-
-        // @ts-ignore
         const data = response.data?.[0]
-        let url = data?.url
+        const tempUrl = data?.url
 
-        if (!url && data?.b64_json) {
-            url = `data:image/png;base64,${data.b64_json}`
+        if (!tempUrl) {
+            return { success: false, error: "No URL in response", debug: response }
         }
 
-        if (!url) {
-            return { success: false, error: "No URL or Base64 in response", debug: response }
+        // Server-side fetch and convert to Base64 to avoid client-side loading issues
+        try {
+            const imageRes = await fetch(tempUrl)
+            if (!imageRes.ok) throw new Error("Failed to fetch image from OpenAI URL")
+
+            const arrayBuffer = await imageRes.arrayBuffer()
+            const base64 = Buffer.from(arrayBuffer).toString('base64')
+            const dataUri = `data:image/png;base64,${base64}`
+
+            return { success: true, url: dataUri }
+        } catch (fetchError) {
+            console.error("Failed to convert image to base64:", fetchError)
+            return { success: true, url: tempUrl } // Fallback to raw URL
         }
 
-        return { success: true, url }
     } catch (error: any) {
         console.error("Image generation failed:", error)
         return { success: false, error: error.message || "Unknown error" }
