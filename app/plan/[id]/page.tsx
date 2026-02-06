@@ -4,6 +4,8 @@ import Link from 'next/link'
 import { ChevronLeft, CheckCircle, Circle, Menu } from 'lucide-react'
 import PlanClient from './client'
 
+export const maxDuration = 60;
+
 export default async function PlanPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params
     const supabase = await createClient()

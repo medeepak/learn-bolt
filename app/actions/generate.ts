@@ -4,8 +4,6 @@ import { createClient } from '@/lib/supabase/server'
 import OpenAI from 'openai'
 import { redirect } from 'next/navigation'
 
-export const maxDuration = 60; // Increase timeout for generation
-
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 })
