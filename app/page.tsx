@@ -9,7 +9,9 @@ import { createClient } from '@/lib/supabase/client'
 import { generateLearningPlan } from './actions/generate'
 import { useEffect } from 'react'
 
-export default function Home() {
+import { Suspense } from 'react'
+
+function HomeContent() {
   const [topic, setTopic] = useState('')
   const [urgency, setUrgency] = useState('2h')
   const [level, setLevel] = useState('beginner')
@@ -186,5 +188,13 @@ export default function Home() {
         </motion.div>
       </main>
     </div>
+  )
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <HomeContent />
+    </Suspense>
   )
 }
