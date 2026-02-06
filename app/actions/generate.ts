@@ -68,6 +68,11 @@ export async function generatePlanContent(planId: string) {
     - Urgency: ${urgency}
     - Level: ${level}
     - Language: ${language}
+    
+    Language Rules:
+    - If Language is NOT English, write in a **Natural, Conversational Scope** (Spoken style).
+    - **IMPORTANT**: Keep technical terms in ENGLISH (e.g. say "Quantum Physics" not the translated literal term), but explain them in ${language}.
+    - Do not use archaic or formal bookish language. Write like a friend explaining to a friend.
 
     Goal: The user must understand the *Broad Concepts* and the *Specific Mechanics*. 
     Avoid vague fluff. Focus on "How it works" and "Why it matters".
@@ -78,8 +83,8 @@ export async function generatePlanContent(planId: string) {
     3. "next_steps": A list of 3–4 concrete follow-up topics.
 
     Each chapter MUST have:
-    - title: string (Action-oriented, e.g. "How Engines Ignite" vs "Combustion")
-    - mental_model: string (A strong analogy. "Think of traffic flow...")
+    - title: string (Action-oriented. Keep in English if strict translation sounds weird).
+    - mental_model: string (A strong analogy.)
     - key_takeaway: string (One high-value insight.)
 
     Structure:
@@ -92,7 +97,7 @@ export async function generatePlanContent(planId: string) {
 
     const completion = await openai.chat.completions.create({
         messages: [
-            { role: "system", content: "You are a strict, no-nonsense teacher. You hate fluff. Output valid JSON." },
+            { role: "system", content: "You are a helpful tutor. You write naturally, not like a robot. Output valid JSON." },
             { role: "user", content: prompt }
         ],
         model: "gpt-4o",
@@ -173,19 +178,16 @@ export async function generateChapterContent(chapterId: string) {
     - Level: ${level}
     - Language: ${language}
 
-    Instruction:
-    - Be concrete. Use specific examples, not generalities.
-    - If explaining a concept, explain the MECHANISM. (Don't just say "it works", say HOW).
-    - Explanation should be "Broad" enough to see the big picture, but "Specific" enough to be useful.
+    Language Rules:
+    - Write in **${language}**, but use a **Casual, Conversational Tone**.
+    - **CRITICAL**: Keep complex Technical Terms in **ENGLISH** (parenthesized if needed).
+    - Example: Instead of translating "DNS Resolution" into pure archaic Tamil/Hindi, say "DNS Resolution" in English and explain it in ${language}.
+    - The output must feel like a native speaker talking to a friend, NOT a textbook translation.
 
-    Requirements:
-    - explanation: string (5-8 lines. Start with the "Why", then the "How".)
-    - common_misconception: string (Correct a specific error beginners make.)
-    - real_world_example: string (A concrete application in industry or daily life.)
-    - quiz_question: string (Test deep understanding, not surface facts.)
-    - quiz_answer: string
-    - visual_type: "mermaid" | "react" | "image"
-    - visual_content: string
+    Instruction:
+    - Be concrete. Use specific examples.
+    - Explain the MECHANISM (How it works).
+    - Explanation should be 5-8 lines.
 
     Structure JSON:
     {
@@ -200,8 +202,9 @@ export async function generateChapterContent(chapterId: string) {
     `
 
     const completion = await openai.chat.completions.create({
+        // Modified system prompt to emphasize natural language
         messages: [
-            { role: "system", content: "You are a domain expert. You prioritize deep understanding over simplification. Output valid JSON." },
+            { role: "system", content: "You are a native speaker who is excellent at explaining complex topics simply. You use English for technical terms. Output valid JSON." },
             { role: "user", content: prompt }
         ],
         model: "gpt-4o",
