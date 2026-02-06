@@ -116,7 +116,7 @@ export async function generatePlanContent(planId: string) {
             { role: "system", content: "You describe things simply using analogies. You output valid JSON only." },
             { role: "user", content: prompt }
         ],
-        model: "gpt-4o",
+        model: "gpt-4o-mini",
         response_format: { type: "json_object" },
     });
     console.log("OpenAI Response received for:", topic)
