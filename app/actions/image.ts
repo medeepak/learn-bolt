@@ -19,11 +19,19 @@ export async function generateImage(prompt: string) {
         });
 
         // @ts-ignore
+        console.log("Full Image Response:", JSON.stringify(response, null, 2))
+
+        // @ts-ignore
         const data = response.data?.[0]
         const tempUrl = data?.url
+        const b64 = data?.b64_json
+
+        if (b64) {
+            return { success: true, url: `data:image/png;base64,${b64}` }
+        }
 
         if (!tempUrl) {
-            return { success: false, error: "No URL in response", debug: response }
+            return { success: false, error: "No URL or B64 in response", debug: response }
         }
 
         // Server-side fetch and convert to Base64 to avoid client-side loading issues
