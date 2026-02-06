@@ -119,6 +119,7 @@ const AIImage = ({ prompt }: { prompt: string }) => {
                 setImageUrl(res.url)
             } else {
                 console.error("Client Image Load Error:", res?.error)
+                alert(`Image Generation Failed: ${res?.error || "Unknown error"}`)
                 // You could also set an error state here to show in UI
             }
         } catch (e) {

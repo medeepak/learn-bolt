@@ -24,6 +24,7 @@ export async function generateLearningPlan(formData: FormData) {
     // NOTE: We now allow guests (user is optional)
 
     // 1. Generate the Plan Structure using OpenAI
+    console.log("Starting generation for:", topic)
     const prompt = `
     You are an expert curriculum designer and explainer for busy, non-academic learners.
     Your job is to make complex topics feel obvious, intuitive, and memorable.
@@ -85,6 +86,7 @@ export async function generateLearningPlan(formData: FormData) {
         model: "gpt-4o",
         response_format: { type: "json_object" },
     });
+    console.log("OpenAI Response received for:", topic)
 
     const content = completion.choices[0].message.content;
     if (!content) throw new Error("Failed to generate content");
