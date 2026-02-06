@@ -7,19 +7,17 @@ import mermaid from 'mermaid'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { generateImage } from '../../actions/image'
-import { generateLearningPlan, generatePlanContent } from '../../actions/generate'
+import { generateLearningPlan, generatePlanContent, generateChapterContent } from '../../actions/generate'
 
-// Initialize Mermaid
-mermaid.initialize({
-    startOnLoad: true,
-    theme: 'neutral',
-    securityLevel: 'loose',
-})
+// ... existing mermaid init ...
 
+// Fix Mermaid Diagram component to handle empty charts gracefully
 const MermaidDiagram = ({ chart }: { chart: string }) => {
     const [svg, setSvg] = useState('')
 
     useEffect(() => {
+        if (!chart || chart === "Content loading...") return; // Skip if loading
+
         const render = async () => {
             try {
                 const { svg } = await mermaid.render(`mermaid-${Math.random().toString(36).substr(2, 9)}`, chart);
@@ -167,7 +165,7 @@ export default function PlanClient({ plan, chapters }: { plan: any, chapters: an
         if (chapters.length === 0 && plan.status === 'generating') {
             const init = async () => {
                 try {
-                    console.log("Initializing plan content...")
+                    console.log("Initializing plan outline...")
                     const res = await generatePlanContent(plan.id)
                     if (res.success) {
                         // Don't set initializing to false here. 
@@ -184,6 +182,28 @@ export default function PlanClient({ plan, chapters }: { plan: any, chapters: an
             setInitializing(false)
         }
     }, [chapters.length, plan.status, plan.id, router])
+
+    // Queue: Process chapters that are just outlines (missing explanation)
+    useEffect(() => {
+        if (initializing || chapters.length === 0) return
+
+        const processQueue = async () => {
+            const pendingChapter = chapters.find(c => !c.explanation || c.explanation === "")
+            if (pendingChapter) {
+                console.log("Found pending chapter:", pendingChapter.title)
+                try {
+                    const res = await generateChapterContent(pendingChapter.id)
+                    if (res.success) {
+                        router.refresh()
+                    }
+                } catch (e) {
+                    console.error("Chapter generation failed", e)
+                }
+            }
+        }
+
+        processQueue()
+    }, [chapters, initializing, router])
 
     // Update URL hash for sharing/bookmarking
     useEffect(() => {
@@ -289,74 +309,84 @@ export default function PlanClient({ plan, chapters }: { plan: any, chapters: an
                         </h2>
 
                         <div className="space-y-6">
-                            {/* Mental Model - The "Anchor" */}
-                            {currentChapter.mental_model && (
-                                <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-5 shadow-sm">
-                                    <span className="flex items-center gap-2 text-xs font-bold text-indigo-700 uppercase tracking-wider mb-2">
-                                        <span className="text-lg">💡</span> Mental Model
-                                    </span>
-                                    <p className="text-indigo-950 font-medium text-lg">
-                                        {currentChapter.mental_model}
-                                    </p>
+                            {(!currentChapter.explanation || currentChapter.explanation === "") ? (
+                                <div className="flex flex-col items-center justify-center p-12 text-center text-gray-500 space-y-4">
+                                    <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+                                    <p>Writing this chapter...</p>
+                                    <p className="text-xs text-gray-400">Using GPT-4o for high quality explanations.</p>
                                 </div>
-                            )}
-
-                            {/* Visual Content */}
-                            {currentChapter.visual_type === 'mermaid' && (
-                                <MermaidDiagram chart={currentChapter.visual_content} />
-                            )}
-
-                            {currentChapter.visual_type === 'react' && (
-                                <SimpleTable dataStr={currentChapter.visual_content} />
-                            )}
-
-                            {currentChapter.visual_type === 'image' && (
-                                <AIImage prompt={currentChapter.visual_content} />
-                            )}
-
-                            <p className="text-xl text-gray-700 leading-relaxed font-serif">
-                                {currentChapter.explanation}
-                            </p>
-
-                            {/* Common Misconception - The "Correction" */}
-                            {currentChapter.common_misconception && (
-                                <div className="bg-rose-50 border border-rose-100 rounded-xl p-5">
-                                    <span className="flex items-center gap-2 text-xs font-bold text-rose-700 uppercase tracking-wider mb-2">
-                                        <span className="text-lg">⚠️</span> Common Myth
-                                    </span>
-                                    <p className="text-rose-950 font-medium text-base">
-                                        {currentChapter.common_misconception}
-                                    </p>
-                                </div>
-                            )}
-
-                            {/* Real World Example */}
-                            {currentChapter.real_world_example && (
-                                <div className="bg-blue-50 border border-blue-100 rounded-xl p-6">
-                                    <span className="block text-xs font-bold text-blue-800 uppercase tracking-wider mb-2">Real World Example</span>
-                                    <p className="text-blue-900 font-medium text-lg italic">
-                                        "{currentChapter.real_world_example}"
-                                    </p>
-                                </div>
-                            )}
-
-                            {/* Quiz / Active Recall */}
-                            {currentChapter.quiz_question && (
-                                <div className="bg-teal-50 border border-teal-100 rounded-xl p-6 mt-6">
-                                    <span className="block text-xs font-bold text-teal-700 uppercase tracking-wider mb-2">Active Recall</span>
-                                    <p className="text-teal-900 font-medium text-lg mb-4">
-                                        {currentChapter.quiz_question}
-                                    </p>
-
-                                    <details className="group">
-                                        <summary className="cursor-pointer text-teal-600 font-medium text-sm hover:text-teal-800 transition-colors list-none flex items-center gap-2">
-                                            <span className="bg-teal-100 px-2 py-1 rounded">Reveal Answer</span>
-                                        </summary>
-                                        <div className="mt-3 text-teal-800 leading-relaxed pl-1">
-                                            {currentChapter.quiz_answer}
+                            ) : (
+                                <>
+                                    {/* Mental Model - The "Anchor" */}
+                                    {currentChapter.mental_model && (
+                                        <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-5 shadow-sm">
+                                            <span className="flex items-center gap-2 text-xs font-bold text-indigo-700 uppercase tracking-wider mb-2">
+                                                <span className="text-lg">💡</span> Mental Model
+                                            </span>
+                                            <p className="text-indigo-950 font-medium text-lg">
+                                                {currentChapter.mental_model}
+                                            </p>
                                         </div>
-                                    </details>
-                                </div>
+                                    )}
+
+                                    {/* Visual Content */}
+                                    {currentChapter.visual_type === 'mermaid' && (
+                                        <MermaidDiagram chart={currentChapter.visual_content} />
+                                    )}
+
+                                    {currentChapter.visual_type === 'react' && (
+                                        <SimpleTable dataStr={currentChapter.visual_content} />
+                                    )}
+
+                                    {currentChapter.visual_type === 'image' && (
+                                        <AIImage prompt={currentChapter.visual_content} />
+                                    )}
+
+                                    <p className="text-xl text-gray-700 leading-relaxed font-serif">
+                                        {currentChapter.explanation}
+                                    </p>
+
+                                    {/* Common Misconception - The "Correction" */}
+                                    {currentChapter.common_misconception && (
+                                        <div className="bg-rose-50 border border-rose-100 rounded-xl p-5">
+                                            <span className="flex items-center gap-2 text-xs font-bold text-rose-700 uppercase tracking-wider mb-2">
+                                                <span className="text-lg">⚠️</span> Common Myth
+                                            </span>
+                                            <p className="text-rose-950 font-medium text-base">
+                                                {currentChapter.common_misconception}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {/* Real World Example */}
+                                    {currentChapter.real_world_example && (
+                                        <div className="bg-blue-50 border border-blue-100 rounded-xl p-6">
+                                            <span className="block text-xs font-bold text-blue-800 uppercase tracking-wider mb-2">Real World Example</span>
+                                            <p className="text-blue-900 font-medium text-lg italic">
+                                                "{currentChapter.real_world_example}"
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {/* Quiz / Active Recall */}
+                                    {currentChapter.quiz_question && (
+                                        <div className="bg-teal-50 border border-teal-100 rounded-xl p-6 mt-6">
+                                            <span className="block text-xs font-bold text-teal-700 uppercase tracking-wider mb-2">Active Recall</span>
+                                            <p className="text-teal-900 font-medium text-lg mb-4">
+                                                {currentChapter.quiz_question}
+                                            </p>
+
+                                            <details className="group">
+                                                <summary className="cursor-pointer text-teal-600 font-medium text-sm hover:text-teal-800 transition-colors list-none flex items-center gap-2">
+                                                    <span className="bg-teal-100 px-2 py-1 rounded">Reveal Answer</span>
+                                                </summary>
+                                                <div className="mt-3 text-teal-800 leading-relaxed pl-1">
+                                                    {currentChapter.quiz_answer}
+                                                </div>
+                                            </details>
+                                        </div>
+                                    )}
+                                </>
                             )}
 
                             <div className="bg-amber-50 border border-amber-100 rounded-xl p-6 mt-8">

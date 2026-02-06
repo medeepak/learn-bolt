@@ -59,64 +59,43 @@ export async function generatePlanContent(planId: string) {
     console.log("Step 2: Generating content for Plan ID:", planId)
 
     const prompt = `
-    You are an expert curriculum designer and explainer for busy, non-academic learners.
-    Your job is to make complex topics feel obvious, intuitive, and memorable.
-
+    You are an expert curriculum designer.
+    ref: "Think First" - Before generating, determine the "Critical Path" to understanding this topic.
+    
     Create a learning plan for: "${topic}"
 
     Context:
-    - Urgency: ${urgency} (Prioritize what matters. Skip edge cases.)
+    - Urgency: ${urgency}
     - Level: ${level}
-    - Language: ${language} (Explanations in this language. Technical terms in English.)
+    - Language: ${language}
 
-    Learning philosophy (IMPORTANT):
-    - Teach for understanding, not completeness.
-    - Use plain language, short sentences, and everyday comparisons.
-    - Avoid academic tone, formulas, or textbook definitions.
-    - Every chapter should answer: "Why does this matter?" and "How does this work in real life?"
+    Goal: The user must understand the *Broad Concepts* and the *Specific Mechanics*. 
+    Avoid vague fluff. Focus on "How it works" and "Why it matters".
 
     Output a JSON object with:
-    1. "chapters": A list of 6–12 items.
-    2. "next_steps": A list of 3–4 concrete follow-up topics.
+    1. "curriculum_strategy": A 2-sentence explanation of why you chose this specific path.
+    2. "chapters": A list of 5-7 items.
+    3. "next_steps": A list of 3–4 concrete follow-up topics.
 
     Each chapter MUST have:
-    - title: string (Clear, friendly, non-academic)
-    - mental_model: string (ONE simple sentence that frames the idea before details. Start with "Think of...")
-    - explanation: string (Begin with a short prediction like: "Before reading this, guess...". Then explain in 5-10 lines.)
-    - common_misconception: string (One brief common misunderstanding/mistake. "Many people think X, but actually Y.")
-    - real_world_example: string (Practical example using real entities. Contrast with a confused concept where applicable.)
-    - quiz_question: string (A "Teach it back" scenario or quick check. e.g. "How would you explain X to a friend?")
-    - quiz_answer: string (The simple, correct answer to the quiz question.)
-    - key_takeaway: string (One short sentence)
-    - visual_type: "mermaid" | "react" | "image" (Visual must answer ONE clear question.)
-    - visual_content: string
+    - title: string (Action-oriented, e.g. "How Engines Ignite" vs "Combustion")
+    - mental_model: string (A strong analogy. "Think of traffic flow...")
+    - key_takeaway: string (One high-value insight.)
 
-    Structure EXACTLY as:
+    Structure:
     {
-      "chapters": [
-        {
-          "title": "...",
-          "mental_model": "Think of...",
-          "explanation": "Before reading this, guess... (rest of explanation)",
-          "common_misconception": "...",
-          "real_world_example": "...",
-          "quiz_question": "...",
-          "quiz_answer": "...",
-          "key_takeaway": "...",
-          "visual_type": "...",
-          "visual_content": "..."
-        }
-      ],
-      "next_steps": ["Step 1", "Step 2", "Step 3"]
+      "curriculum_strategy": "...",
+      "chapters": [{ "title": "...", "mental_model": "...", "key_takeaway": "..." }],
+      "next_steps": ["..."]
     }
   `
 
     const completion = await openai.chat.completions.create({
         messages: [
-            { role: "system", content: "You describe things simply using analogies. You output valid JSON only." },
+            { role: "system", content: "You are a strict, no-nonsense teacher. You hate fluff. Output valid JSON." },
             { role: "user", content: prompt }
         ],
-        model: "gpt-4o-mini",
+        model: "gpt-4o",
         response_format: { type: "json_object" },
     });
     console.log("OpenAI Response received for:", topic)
@@ -137,18 +116,18 @@ export async function generatePlanContent(planId: string) {
         throw new Error("AI generated invalid JSON structure: missing chapters")
     }
 
-    // 3. Save Chapters
+    // 3. Save Chapters (Outline Only)
     const chaptersToInsert = parsedData.chapters.map((ch: any, index: number) => ({
         plan_id: plan.id,
         title: ch.title,
-        mental_model: ch.mental_model || "",
-        explanation: ch.explanation,
-        common_misconception: ch.common_misconception || "",
-        real_world_example: ch.real_world_example || "",
-        quiz_question: ch.quiz_question || "",
-        quiz_answer: ch.quiz_answer || "",
-        visual_type: ch.visual_type,
-        visual_content: typeof ch.visual_content === 'string' ? ch.visual_content : JSON.stringify(ch.visual_content),
+        mental_model: ch.mental_model,
+        explanation: "", // To be filled later
+        common_misconception: "",
+        real_world_example: "",
+        quiz_question: "",
+        quiz_answer: "",
+        visual_type: "text", // Default
+        visual_content: "Content loading...",
         key_takeaway: ch.key_takeaway,
         order: index + 1,
         is_completed: false
@@ -168,6 +147,87 @@ export async function generatePlanContent(planId: string) {
         status: 'generated',
         next_steps: parsedData.next_steps || []
     }).eq('id', planId)
+
+    return { success: true }
+}
+
+export async function generateChapterContent(chapterId: string) {
+    const supabase = await createClient()
+
+    // Fetch Chapter and Plan context
+    const { data: chapter } = await supabase.from('chapters').select('*, learning_plans(*)').eq('id', chapterId).single()
+    if (!chapter) throw new Error("Chapter not found")
+
+    const plan = chapter.learning_plans
+    const { topic, level, language } = plan
+
+    console.log("Generating detail for chapter:", chapter.title)
+
+    const prompt = `
+    Write the detailed content for this chapter of a "${topic}" course.
+    
+    Chapter Title: "${chapter.title}"
+    Mental Model: "${chapter.mental_model}"
+    
+    Context:
+    - Level: ${level}
+    - Language: ${language}
+
+    Instruction:
+    - Be concrete. Use specific examples, not generalities.
+    - If explaining a concept, explain the MECHANISM. (Don't just say "it works", say HOW).
+    - Explanation should be "Broad" enough to see the big picture, but "Specific" enough to be useful.
+
+    Requirements:
+    - explanation: string (5-8 lines. Start with the "Why", then the "How".)
+    - common_misconception: string (Correct a specific error beginners make.)
+    - real_world_example: string (A concrete application in industry or daily life.)
+    - quiz_question: string (Test deep understanding, not surface facts.)
+    - quiz_answer: string
+    - visual_type: "mermaid" | "react" | "image"
+    - visual_content: string
+
+    Structure JSON:
+    {
+       "explanation": "...",
+       "common_misconception": "...",
+       "real_world_example": "...",
+       "quiz_question": "...",
+       "quiz_answer": "...",
+       "visual_type": "...",
+       "visual_content": "..."
+    }
+    `
+
+    const completion = await openai.chat.completions.create({
+        messages: [
+            { role: "system", content: "You are a domain expert. You prioritize deep understanding over simplification. Output valid JSON." },
+            { role: "user", content: prompt }
+        ],
+        model: "gpt-4o",
+        response_format: { type: "json_object" },
+    });
+
+    const content = completion.choices[0].message.content;
+    if (!content) throw new Error("Failed to generate content");
+
+    let parsedData;
+    try {
+        parsedData = JSON.parse(content);
+    } catch (e) { throw new Error("Invalid JSON") }
+
+    // Update Chapter
+    const { error } = await supabase.from('chapters').update({
+        explanation: parsedData.explanation,
+        common_misconception: parsedData.common_misconception,
+        real_world_example: parsedData.real_world_example,
+        quiz_question: parsedData.quiz_question,
+        quiz_answer: parsedData.quiz_answer,
+        visual_type: parsedData.visual_type,
+        visual_content: typeof parsedData.visual_content === 'string' ? parsedData.visual_content : JSON.stringify(parsedData.visual_content)
+    }).eq('id', chapterId)
+
+    if (error) throw new Error("Failed to update chapter")
 
     return { success: true }
 }
