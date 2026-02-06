@@ -67,25 +67,19 @@ export async function generatePlanContent(planId: string) {
     Context:
     - Urgency: ${urgency}
     - Level: ${level}
-    - Language: ${language}
-    
-    Language Rules:
-    - If Language is NOT English, write in a **Natural, Conversational Scope** (Spoken style).
-    - **IMPORTANT**: Keep technical terms in ENGLISH (e.g. say "Quantum Physics" not the translated literal term), but explain them in ${language}.
-    - Do not use archaic or formal bookish language. Write like a friend explaining to a friend.
+    - Language: English (Always generate reasoning in English first)
 
     Goal: The user must understand the *Broad Concepts* and the *Specific Mechanics*. 
-    Avoid vague fluff. Focus on "How it works" and "Why it matters".
-
+    
     Output a JSON object with:
     1. "curriculum_strategy": A 2-sentence explanation of why you chose this specific path.
     2. "chapters": A list of 5-7 items.
     3. "next_steps": A list of 3–4 concrete follow-up topics.
 
     Each chapter MUST have:
-    - title: string (Action-oriented. Keep in English if strict translation sounds weird).
-    - mental_model: string (A strong analogy.)
-    - key_takeaway: string (One high-value insight.)
+    - title: string (Action-oriented)
+    - mental_model: string (A strong analogy)
+    - key_takeaway: string (One high-value insight)
 
     Structure:
     {
@@ -97,7 +91,7 @@ export async function generatePlanContent(planId: string) {
 
     const completion = await openai.chat.completions.create({
         messages: [
-            { role: "system", content: "You are a helpful tutor. You write naturally, not like a robot. Output valid JSON." },
+            { role: "system", content: "You are a strict, no-nonsense teacher. Output valid JSON." },
             { role: "user", content: prompt }
         ],
         model: "gpt-4o",
@@ -114,6 +108,11 @@ export async function generatePlanContent(planId: string) {
     } catch (e) {
         console.error("JSON Parse Error", e);
         throw new Error("AI generated invalid JSON");
+    }
+
+    // 2. Translation Step (if needed)
+    if (language && language.toLowerCase() !== 'english') {
+        parsedData = await translateContent(parsedData, language);
     }
 
     if (!parsedData.chapters || !Array.isArray(parsedData.chapters)) {
@@ -176,13 +175,7 @@ export async function generateChapterContent(chapterId: string) {
     
     Context:
     - Level: ${level}
-    - Language: ${language}
-
-    Language Rules:
-    - Write in **${language}**, but use a **Casual, Conversational Tone**.
-    - **CRITICAL**: Keep complex Technical Terms in **ENGLISH** (parenthesized if needed).
-    - Example: Instead of translating "DNS Resolution" into pure archaic Tamil/Hindi, say "DNS Resolution" in English and explain it in ${language}.
-    - The output must feel like a native speaker talking to a friend, NOT a textbook translation.
+    - Language: English (Generate reasoning in English)
 
     Instruction:
     - Be concrete. Use specific examples.
@@ -202,9 +195,8 @@ export async function generateChapterContent(chapterId: string) {
     `
 
     const completion = await openai.chat.completions.create({
-        // Modified system prompt to emphasize natural language
         messages: [
-            { role: "system", content: "You are a native speaker who is excellent at explaining complex topics simply. You use English for technical terms. Output valid JSON." },
+            { role: "system", content: "You are an expert tutor. Output valid JSON." },
             { role: "user", content: prompt }
         ],
         model: "gpt-4o",
@@ -218,6 +210,11 @@ export async function generateChapterContent(chapterId: string) {
     try {
         parsedData = JSON.parse(content);
     } catch (e) { throw new Error("Invalid JSON") }
+
+    // 2. Translate if needed
+    if (language && language.toLowerCase() !== 'english') {
+        parsedData = await translateContent(parsedData, language);
+    }
 
     // Update Chapter
     const { error } = await supabase.from('chapters').update({
@@ -233,4 +230,35 @@ export async function generateChapterContent(chapterId: string) {
     if (error) throw new Error("Failed to update chapter")
 
     return { success: true }
+}
+
+// Helper: Translate JSON Content
+async function translateContent(data: any, targetLang: string) {
+    console.log(`Translating content to ${targetLang}...`);
+
+    const prompt = `
+    Translate the values in this JSON object to ${targetLang}.
+    
+    Rules:
+    - **Conversational Tone**: Use natural, spoken ${targetLang}.
+    - **Technical Terms**: KEEP IN ENGLISH. Do not translate "Quantum Physics", "API", "Engine", etc.
+    - **Precision**: Keep the exact meaning of the English source.
+    
+    Input JSON:
+    ${JSON.stringify(data, null, 2)}
+    
+    Output ONLY valid JSON.
+    `
+
+    const completion = await openai.chat.completions.create({
+        messages: [
+            { role: "system", content: "You are a professional translator. You preserve English technical terms." },
+            { role: "user", content: prompt }
+        ],
+        model: "gpt-4o",
+        response_format: { type: "json_object" },
+    });
+
+    const translated = completion.choices[0].message.content;
+    return JSON.parse(translated || "{}");
 }
