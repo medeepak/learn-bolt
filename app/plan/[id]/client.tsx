@@ -170,7 +170,8 @@ export default function PlanClient({ plan, chapters }: { plan: any, chapters: an
                     console.log("Initializing plan content...")
                     const res = await generatePlanContent(plan.id)
                     if (res.success) {
-                        setInitializing(false)
+                        // Don't set initializing to false here. 
+                        // Wait for the router.refresh() to bring in the new chapters.
                         router.refresh()
                     }
                 } catch (e) {
@@ -243,7 +244,7 @@ export default function PlanClient({ plan, chapters }: { plan: any, chapters: an
 
     const currentChapter = chapters[currentIndex]
 
-    if (initializing) {
+    if (initializing || !currentChapter) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
                 <Loader2 className="w-12 h-12 text-amber-500 animate-spin mb-6" />
