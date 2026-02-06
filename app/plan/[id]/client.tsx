@@ -174,9 +174,9 @@ export default function PlanClient({ plan, chapters }: { plan: any, chapters: an
                         // Wait for the router.refresh() to bring in the new chapters.
                         router.refresh()
                     }
-                } catch (e) {
+                } catch (e: any) {
                     console.error("Initialization Failed", e)
-                    alert("Failed to generate content. Please try again.")
+                    alert(`Generation Failed: ${e.message || "Unknown error"}`)
                 }
             }
             init()
