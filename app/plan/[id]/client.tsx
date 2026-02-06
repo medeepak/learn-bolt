@@ -159,6 +159,8 @@ export default function PlanClient({ plan, chapters }: { plan: any, chapters: an
     const [completed, setCompleted] = useState<Set<string>>(new Set())
     const [generatingNext, setGeneratingNext] = useState<string | null>(null)
     const [initializing, setInitializing] = useState(chapters.length === 0)
+    const [generatingChapterId, setGeneratingChapterId] = useState<string | null>(null)
+    const [failedChapters, setFailedChapters] = useState<Set<string>>(new Set())
 
     // Trigger content generation if plan is new
     useEffect(() => {
@@ -213,6 +215,14 @@ export default function PlanClient({ plan, chapters }: { plan: any, chapters: an
     }, [currentIndex, initializing, chapters])
 
     const indexToId = (i: number) => chapters[i]?.id
+
+    const retryChapter = (chapterId: string) => {
+        setFailedChapters(prev => {
+            const next = new Set(prev)
+            next.delete(chapterId)
+            return next
+        })
+    }
 
     const handleNextStep = async (topic: string) => {
         setGeneratingNext(topic)
@@ -310,11 +320,26 @@ export default function PlanClient({ plan, chapters }: { plan: any, chapters: an
 
                         <div className="space-y-6">
                             {(!currentChapter.explanation || currentChapter.explanation === "") ? (
-                                <div className="flex flex-col items-center justify-center p-12 text-center text-gray-500 space-y-4">
-                                    <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
-                                    <p>Writing this chapter...</p>
-                                    <p className="text-xs text-gray-400">Using GPT-4o for high quality explanations.</p>
-                                </div>
+                                failedChapters.has(currentChapter.id) ? (
+                                    <div className="flex flex-col items-center justify-center p-12 text-center text-red-500 space-y-4">
+                                        <div className="bg-red-50 p-4 rounded-full">
+                                            <span className="text-2xl">⚠️</span>
+                                        </div>
+                                        <p className="font-medium">Failed to write this chapter.</p>
+                                        <button
+                                            onClick={() => retryChapter(currentChapter.id)}
+                                            className="bg-red-100 hover:bg-red-200 text-red-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                                        >
+                                            Retry Generation
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center p-12 text-center text-gray-500 space-y-4">
+                                        <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+                                        <p>Writing this chapter...</p>
+                                        <p className="text-xs text-gray-400">Using GPT-4o for high quality explanations.</p>
+                                    </div>
+                                )
                             ) : (
                                 <>
                                     {/* Mental Model - The "Anchor" */}
