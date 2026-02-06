@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import OpenAI from 'openai'
 import { redirect } from 'next/navigation'
+import { revalidatePath } from 'next/cache'
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
@@ -152,10 +153,12 @@ export async function generatePlanContent(planId: string) {
         next_steps: parsedData.next_steps || []
     }).eq('id', planId)
 
+    revalidatePath(`/plan/${planId}`, 'page')
     return { success: true }
 }
 
-export async function generateChapterContent(chapterId: string) {
+// Step 1: Generate English Content (Logic)
+export async function generateEnglishContent(chapterId: string) {
     const supabase = await createClient()
 
     // Fetch Chapter and Plan context
@@ -163,9 +166,9 @@ export async function generateChapterContent(chapterId: string) {
     if (!chapter) throw new Error("Chapter not found")
 
     const plan = chapter.learning_plans
-    const { topic, level, language } = plan
+    const { topic, level } = plan // Note: We IGNORE plan.language here, forcing English
 
-    console.log("Generating detail for chapter:", chapter.title)
+    console.log(`[Server] Step 1: Generating English detail for chapter ID: ${chapterId}`)
 
     const prompt = `
     Write the detailed content for this chapter of a "${topic}" course.
@@ -175,12 +178,20 @@ export async function generateChapterContent(chapterId: string) {
     
     Context:
     - Level: ${level}
-    - Language: English (Generate reasoning in English)
+    - Language: English (STRICTLY ENGLISH)
 
     Instruction:
     - Be concrete. Use specific examples.
     - Explain the MECHANISM (How it works).
     - Explanation should be 5-8 lines.
+    - For visual_type: MUST be one of "image", "mermaid", or "react" (table).
+      - Use "image" for concepts that benefit from an illustration.
+      - Use "mermaid" for processes, flows, or hierarchies. Provide valid Mermaid diagram code.
+      - Use "react" for comparisons or data that fits a table. Provide JSON array.
+    - For visual_content: Provide the content matching the visual_type.
+      - If "image": a detailed prompt describing the illustration.
+      - If "mermaid": valid Mermaid diagram code.
+      - If "react": JSON array for table data.
 
     Structure JSON:
     {
@@ -189,7 +200,7 @@ export async function generateChapterContent(chapterId: string) {
        "real_world_example": "...",
        "quiz_question": "...",
        "quiz_answer": "...",
-       "visual_type": "...",
+       "visual_type": "image" | "mermaid" | "react",
        "visual_content": "..."
     }
     `
@@ -204,19 +215,20 @@ export async function generateChapterContent(chapterId: string) {
     });
 
     const content = completion.choices[0].message.content;
-    if (!content) throw new Error("Failed to generate content");
+    if (!content) throw new Error("Empty content from OpenAI");
 
     let parsedData;
     try {
         parsedData = JSON.parse(content);
-    } catch (e) { throw new Error("Invalid JSON") }
-
-    // 2. Translate if needed
-    if (language && language.toLowerCase() !== 'english') {
-        parsedData = await translateContent(parsedData, language);
+        if (!parsedData.explanation || parsedData.explanation.length < 50) {
+            throw new Error("AI returned explanation too short")
+        }
+    } catch (e) {
+        console.error("JSON Parse Error", e)
+        throw new Error("Invalid JSON from AI")
     }
 
-    // Update Chapter
+    // Save English Content
     const { error } = await supabase.from('chapters').update({
         explanation: parsedData.explanation,
         common_misconception: parsedData.common_misconception,
@@ -227,8 +239,53 @@ export async function generateChapterContent(chapterId: string) {
         visual_content: typeof parsedData.visual_content === 'string' ? parsedData.visual_content : JSON.stringify(parsedData.visual_content)
     }).eq('id', chapterId)
 
-    if (error) throw new Error("Failed to update chapter")
+    if (error) throw new Error("Failed to save English content")
 
+    if (error) throw new Error("Failed to save English content")
+
+    revalidatePath(`/plan/${plan.id}`, 'page')
+    return { success: true, data: parsedData }
+}
+
+// Step 2: Translate Content (Localization)
+export async function translateChapterContent(chapterId: string) {
+    const supabase = await createClient()
+
+    const { data: chapter } = await supabase.from('chapters').select('*, learning_plans(*)').eq('id', chapterId).single()
+    if (!chapter) throw new Error("Chapter not found")
+
+    const targetLang = chapter.learning_plans.language
+    if (!targetLang || targetLang.toLowerCase() === 'english') {
+        return { success: true, skipped: true }
+    }
+
+    console.log(`[Server] Step 2: Translating chapter ${chapterId} to ${targetLang}`)
+
+    const currentContent = {
+        explanation: chapter.explanation,
+        common_misconception: chapter.common_misconception,
+        real_world_example: chapter.real_world_example,
+        quiz_question: chapter.quiz_question,
+        quiz_answer: chapter.quiz_answer,
+        visual_type: chapter.visual_type,
+        visual_content: chapter.visual_content // Usually kept as is, but good to include context
+    }
+
+    const translatedData = await translateContent(currentContent, targetLang)
+
+    // Update with Translated Content
+    const { error } = await supabase.from('chapters').update({
+        explanation: translatedData.explanation,
+        common_misconception: translatedData.common_misconception,
+        real_world_example: translatedData.real_world_example,
+        quiz_question: translatedData.quiz_question,
+        quiz_answer: translatedData.quiz_answer,
+        // visual_type and visual_content usually don't need translation updates unless text-heavy
+    }).eq('id', chapterId)
+
+    if (error) throw new Error("Failed to save translation")
+
+    revalidatePath(`/plan/${chapter.learning_plans.id}`, 'page')
     return { success: true }
 }
 

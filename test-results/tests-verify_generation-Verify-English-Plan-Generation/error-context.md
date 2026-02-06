@@ -1,0 +1,60 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]:
+        - img [ref=e5]
+        - generic [ref=e7]: Emergency Learning
+      - navigation [ref=e8]:
+        - link "Library" [ref=e9] [cursor=pointer]:
+          - /url: /library
+        - link "Log in" [ref=e10] [cursor=pointer]:
+          - /url: /login
+        - img [ref=e12]
+    - main [ref=e15]:
+      - generic [ref=e16]:
+        - generic [ref=e17]:
+          - heading "Learn anything, fast." [level=1] [ref=e18]
+          - paragraph [ref=e19]: Just-in-time learning plans for when you don't have time for a course. Visual, concise, and ready in minutes.
+        - generic [ref=e20]:
+          - generic [ref=e21]:
+            - img [ref=e22]
+            - textbox "What do you need to learn urgently?" [ref=e25]
+          - button "Start Learning" [disabled] [ref=e26]:
+            - text: Start Learning
+            - img [ref=e27]
+        - generic [ref=e29]:
+          - generic [ref=e30]:
+            - img [ref=e31]
+            - combobox [ref=e34] [cursor=pointer]:
+              - option "I have 2 hours" [selected]
+              - option "I have today"
+              - option "I have this week"
+          - generic [ref=e35]:
+            - img [ref=e36]
+            - combobox [ref=e38] [cursor=pointer]:
+              - option "Beginner" [selected]
+              - option "Intermediate"
+              - option "Advanced"
+          - generic [ref=e39]:
+            - generic [ref=e40]: Aa
+            - combobox [ref=e41] [cursor=pointer]:
+              - option "English" [selected]
+              - option "Hindi"
+              - option "Hinglish"
+              - option "Tamil"
+              - option "Telugu"
+              - option "Malayalam"
+              - option "Kannada"
+              - option "Bengali"
+        - generic [ref=e42]:
+          - generic [ref=e43]: "Try:"
+          - button "Restaurant cash flow" [ref=e44]
+          - button "React useEffect hook" [ref=e45]
+          - button "Series A funding" [ref=e46]
+  - button "Open Next.js Dev Tools" [ref=e52] [cursor=pointer]:
+    - img [ref=e53]
+  - alert [ref=e56]
+```
