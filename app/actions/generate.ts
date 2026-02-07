@@ -317,22 +317,46 @@ export async function generatePlanContent(planId: string) {
         throw new Error("AI generated invalid JSON structure: missing chapters")
     }
 
+    // Normalize chapter fields - handle different AI model response formats
+    const normalizeChapter = (ch: any) => {
+        // Extract title from various possible field names
+        const title = ch.title || ch.chapter_title || ch.name || ch.heading ||
+            (typeof ch === 'string' ? ch : 'Untitled Chapter')
+
+        // Extract mental model
+        const mental_model = ch.mental_model || ch.approach || ch.method ||
+            ch.strategy || ch.analogy || ''
+
+        // Extract key takeaway
+        const key_takeaway = ch.key_takeaway || ch.takeaway || ch.summary ||
+            ch.result || ch.conclusion || ch.objective || ''
+
+        return {
+            title: typeof title === 'string' ? title : JSON.stringify(title),
+            mental_model: typeof mental_model === 'string' ? mental_model : JSON.stringify(mental_model),
+            key_takeaway: typeof key_takeaway === 'string' ? key_takeaway : JSON.stringify(key_takeaway)
+        }
+    }
+
     // 3. Save Chapters (Outline Only)
-    const chaptersToInsert = parsedData.chapters.map((ch: any, index: number) => ({
-        plan_id: plan.id,
-        title: ch.title,
-        mental_model: ch.mental_model,
-        explanation: "", // To be filled later
-        common_misconception: "",
-        real_world_example: "",
-        quiz_question: "",
-        quiz_answer: "",
-        visual_type: "text", // Default
-        visual_content: "Content loading...",
-        key_takeaway: ch.key_takeaway,
-        order: index + 1,
-        is_completed: false
-    }))
+    const chaptersToInsert = parsedData.chapters.map((ch: any, index: number) => {
+        const normalized = normalizeChapter(ch)
+        return {
+            plan_id: plan.id,
+            title: normalized.title,
+            mental_model: normalized.mental_model,
+            explanation: "", // To be filled later
+            common_misconception: "",
+            real_world_example: "",
+            quiz_question: "",
+            quiz_answer: "",
+            visual_type: "text", // Default
+            visual_content: "Content loading...",
+            key_takeaway: normalized.key_takeaway,
+            order: index + 1,
+            is_completed: false
+        }
+    })
 
     const { error: chapterError } = await supabase
         .from('chapters')
