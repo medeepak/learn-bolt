@@ -5,7 +5,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Emergency Learning Platform",
+  title: "Express Learning Platform",
   description: "Learn anything fast with visual, just-in-time chapters.",
 };
 

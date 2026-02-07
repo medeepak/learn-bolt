@@ -1,8 +1,8 @@
-Emergency Learning Platform (MVP, B2C) - PRD
+Express Learning Platform (MVP, B2C) - PRD
 
 1. Product Overview
 Product Name (Working)
-Emergency Learning Platform
+Express Learning Platform
 One-line Description
 A just-in-time learning product that explains practical topics in small, visual, example-driven chapters so users can gain functional understanding quickly.
 Core Promise
