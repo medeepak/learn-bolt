@@ -331,12 +331,14 @@ export default function PlanClient({ plan, chapters: serverChapters }: { plan: a
     const handleNext = () => {
         if (currentIndex < chapters.length - 1) {
             setCurrentIndex(prev => prev + 1)
+            window.scrollTo({ top: 0, behavior: 'smooth' })
         }
     }
 
     const handlePrev = () => {
         if (currentIndex > 0) {
             setCurrentIndex(prev => prev - 1)
+            window.scrollTo({ top: 0, behavior: 'smooth' })
         }
     }
 
