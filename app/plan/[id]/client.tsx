@@ -70,11 +70,18 @@ const SimpleTable = ({ dataStr }: { dataStr: string }) => {
                         <tbody className="divide-y divide-gray-100 bg-white">
                             {data.map((row, i) => (
                                 <tr key={i} className="hover:bg-gray-50/50 transition-colors">
-                                    {headers.map((h) => (
-                                        <td key={h} className="px-6 py-4 text-gray-600 font-medium whitespace-nowrap">
-                                            {row[h]}
-                                        </td>
-                                    ))}
+                                    {headers.map((h) => {
+                                        const value = row[h]
+                                        // Handle nested objects by converting to string
+                                        const displayValue = typeof value === 'object' && value !== null
+                                            ? JSON.stringify(value)
+                                            : String(value ?? '')
+                                        return (
+                                            <td key={h} className="px-6 py-4 text-gray-600 font-medium whitespace-nowrap">
+                                                {displayValue}
+                                            </td>
+                                        )
+                                    })}
                                 </tr>
                             ))}
                         </tbody>
