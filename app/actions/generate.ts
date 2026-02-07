@@ -293,7 +293,7 @@ export async function generatePlanContent(planId: string) {
     try {
         completion = await openai.chat.completions.create({
             messages,
-            model: "gpt-5-nano",
+            model: "gpt-4o",
             response_format: { type: "json_object" },
         });
     } catch (e: any) {
@@ -438,7 +438,7 @@ export async function generateEnglishContent(chapterId: string) {
             { role: "system", content: "You are an expert tutor. Output valid JSON." },
             { role: "user", content: prompt }
         ],
-        model: "gpt-5-nano",
+        model: "gpt-4o",
         response_format: { type: "json_object" },
     });
 
@@ -540,7 +540,7 @@ async function translateContent(data: any, targetLang: string) {
             { role: "system", content: "You are a professional translator. You preserve English technical terms." },
             { role: "user", content: prompt }
         ],
-        model: "gpt-5-nano",
+        model: "gpt-4o",
         response_format: { type: "json_object" },
     });
 
