@@ -1,13 +1,9 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import OpenAI from 'openai'
+import { generateAICompletion, getAIProvider, type AIMessage } from '@/lib/ai-client'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
-
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-})
 
 export async function generateLearningPlan(formData: FormData) {
     console.log('[Server] generateLearningPlan called')
@@ -289,20 +285,18 @@ export async function generatePlanContent(planId: string) {
         messages.push({ role: "user", content: userPrompt })
     }
 
-    let completion;
+    let content: string;
     try {
-        completion = await openai.chat.completions.create({
-            messages,
-            model: "gpt-4o",
-            response_format: { type: "json_object" },
+        content = await generateAICompletion({
+            messages: messages as AIMessage[],
+            jsonMode: true,
         });
     } catch (e: any) {
-        console.error("OpenAI API Error:", e.message, e.status, e.code);
-        throw new Error(`OpenAI API Error: ${e.message || e.code || 'Unknown'}`);
+        console.error("AI API Error:", e.message);
+        throw new Error(`AI API Error: ${e.message || 'Unknown'}`);
     }
-    console.log("OpenAI Response received for:", topic)
+    console.log(`${getAIProvider()} Response received for:`, topic)
 
-    const content = completion.choices[0].message.content;
     if (!content) throw new Error("Failed to generate content");
 
     let parsedData;
@@ -433,17 +427,15 @@ export async function generateEnglishContent(chapterId: string) {
     }
     `
 
-    const completion = await openai.chat.completions.create({
+    const content = await generateAICompletion({
         messages: [
             { role: "system", content: "You are an expert tutor. Output valid JSON." },
             { role: "user", content: prompt }
         ],
-        model: "gpt-4o",
-        response_format: { type: "json_object" },
+        jsonMode: true,
     });
 
-    const content = completion.choices[0].message.content;
-    if (!content) throw new Error("Empty content from OpenAI");
+    if (!content) throw new Error("Empty content from AI");
 
     let parsedData;
     try {
@@ -535,15 +527,13 @@ async function translateContent(data: any, targetLang: string) {
     Output ONLY valid JSON.
     `
 
-    const completion = await openai.chat.completions.create({
+    const translated = await generateAICompletion({
         messages: [
             { role: "system", content: "You are a professional translator. You preserve English technical terms." },
             { role: "user", content: prompt }
         ],
-        model: "gpt-4o",
-        response_format: { type: "json_object" },
+        jsonMode: true,
     });
 
-    const translated = completion.choices[0].message.content;
     return JSON.parse(translated || "{}");
 }
