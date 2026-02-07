@@ -20,17 +20,42 @@ const MermaidDiagram = ({ chart }: { chart: string }) => {
 
         const render = async () => {
             try {
-                const { svg } = await mermaid.render(`mermaid-${Math.random().toString(36).substr(2, 9)}`, chart);
+                // Clean the chart - remove markdown code blocks and fix common issues
+                let cleanChart = chart.trim()
+
+                // Remove markdown code blocks
+                if (cleanChart.startsWith('```')) {
+                    cleanChart = cleanChart.replace(/^```(mermaid)?\n?/, '').replace(/\n?```$/, '')
+                }
+
+                // Remove any leading/trailing quotes
+                cleanChart = cleanChart.replace(/^["']|["']$/g, '')
+
+                // Fix common AI mistakes: ensure proper diagram type declaration
+                if (!cleanChart.match(/^(graph|flowchart|sequenceDiagram|classDiagram|stateDiagram|erDiagram|journey|gantt|pie|mindmap|timeline)/i)) {
+                    // If no valid mermaid type, try wrapping as flowchart
+                    cleanChart = `flowchart TD\n${cleanChart}`
+                }
+
+                // Escape special characters in labels that might cause issues
+                cleanChart = cleanChart.replace(/[\u201C\u201D]/g, '"') // Smart quotes to regular quotes
+                cleanChart = cleanChart.replace(/[\u2018\u2019]/g, "'") // Smart apostrophes
+
+                const { svg } = await mermaid.render(`mermaid-${Math.random().toString(36).substr(2, 9)}`, cleanChart);
                 setSvg(svg)
             } catch (e) {
-                console.error('Mermaid render error', e)
-                setSvg('<div class="text-red-500 text-sm">Failed to render diagram</div>')
+                console.error('Mermaid render error', e, 'Chart:', chart)
+                setSvg('<div class="text-red-500 text-sm p-4 text-center">Unable to render diagram</div>')
             }
         }
         render()
     }, [chart])
 
-    return <div className="my-6 p-4 bg-gray-50 rounded-xl border border-gray-100 flex justify-center" dangerouslySetInnerHTML={{ __html: svg }} />
+    if (!svg) {
+        return <div className="my-6 p-4 bg-gray-50 rounded-xl border border-gray-100 flex justify-center text-gray-400">Loading diagram...</div>
+    }
+
+    return <div className="my-6 p-4 bg-gray-50 rounded-xl border border-gray-100 flex justify-center overflow-x-auto" dangerouslySetInnerHTML={{ __html: svg }} />
 }
 
 const SimpleTable = ({ dataStr }: { dataStr: string }) => {
