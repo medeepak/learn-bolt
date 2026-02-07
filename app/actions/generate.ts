@@ -10,32 +10,35 @@ const openai = new OpenAI({
 })
 
 export async function generateLearningPlan(formData: FormData) {
+    console.log('[Server] generateLearningPlan called')
+    console.log('[Server] FormData keys:', Array.from(formData.keys()))
+
     const topic = formData.get('topic') as string
     const urgency = formData.get('urgency') as string
     const level = formData.get('level') as string
     const language = formData.get('language') as string
-    const document = formData.get('document') as File | null
+    const document = formData.get('document')
+
+    console.log('[Server] document from FormData:', document ? `${typeof document}, name: ${(document as any).name}` : 'NULL')
 
     if (!topic) {
         throw new Error('Topic is required')
     }
 
-    // Extract text from PDF if provided
-    let documentText = ''
-    if (document) {
+    // Store PDF as base64 to send directly to OpenAI (instead of parsing ourselves)
+    let pdfBase64 = ''
+    if (document && document instanceof File) {
+        console.log(`[PDF] Received document: ${document.name}, size: ${document.size} bytes, type: ${document.type}`)
         try {
             const arrayBuffer = await document.arrayBuffer()
             const buffer = Buffer.from(arrayBuffer)
-            // Dynamic import to avoid module-load-time DOMMatrix error
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const pdfParse = (await import('pdf-parse') as any).default ?? (await import('pdf-parse'))
-            const pdfData = await pdfParse(buffer)
-            documentText = pdfData.text.slice(0, 50000) // Limit to ~50k chars
-            console.log(`Extracted ${documentText.length} chars from PDF`)
-        } catch (e) {
-            console.error('PDF parsing failed:', e)
-            // Continue without document content
+            pdfBase64 = buffer.toString('base64')
+            console.log(`[PDF] Converted to base64, length: ${pdfBase64.length}`)
+        } catch (e: any) {
+            console.error('[PDF] Failed to convert to base64:', e.message)
         }
+    } else {
+        console.log(`[PDF] No document provided in form data`)
     }
 
     const supabase = await createClient()
@@ -44,7 +47,7 @@ export async function generateLearningPlan(formData: FormData) {
     // NOTE: We now allow guests (user is optional)
 
     // 1. Create the Plan Structure in DB immediately (Fast)
-    console.log("Step 1: Creating initial plan for:", topic)
+    console.log("Step 1: Creating initial plan for:", topic, pdfBase64 ? `(with PDF, ${pdfBase64.length} chars base64)` : '')
     const { data: plan, error: planError } = await supabase
         .from('learning_plans')
         .insert({
@@ -54,7 +57,8 @@ export async function generateLearningPlan(formData: FormData) {
             level,
             language,
             status: 'generating', // Initial status
-            next_steps: []
+            next_steps: [],
+            document_context: pdfBase64 || null  // Store PDF as base64 in DB
         })
         .select()
         .single()
@@ -64,37 +68,38 @@ export async function generateLearningPlan(formData: FormData) {
         throw new Error("Failed to init plan")
     }
 
-    return { success: true, planId: plan.id, documentText: documentText || undefined }
+    return { success: true, planId: plan.id }
 }
 
-export async function generatePlanContent(planId: string, documentText?: string) {
+export async function generatePlanContent(planId: string) {
     const supabase = await createClient()
 
-    // Fetch plan details to get context
+    // Fetch plan details to get context (including document_context from DB)
     const { data: plan } = await supabase.from('learning_plans').select('*').eq('id', planId).single()
     if (!plan) throw new Error("Plan not found")
 
-    const { topic, urgency, level, language } = plan
+    const { topic, urgency, level, language, document_context } = plan
+    const pdfBase64 = document_context as string | null
 
-    console.log("Step 2: Generating content for Plan ID:", planId, documentText ? `(with ${documentText.length} chars of document context)` : '')
+    console.log("Step 2: Generating content for Plan ID:", planId, pdfBase64 ? `(with PDF, ${pdfBase64.length} chars base64)` : '(no document)')
 
     // Build prompt based on whether document is provided
-    let prompt: string
+    let systemPrompt = "You are a strict, no-nonsense teacher. Output valid JSON."
+    let userPrompt: string
 
-    if (documentText) {
-        // DOCUMENT-BASED: The document is the PRIMARY source for the curriculum
-        prompt = `
-    You are an expert curriculum designer creating a learning plan from a specific document.
+    if (pdfBase64) {
+        // DOCUMENT-BASED: The PDF is the PRIMARY source for the curriculum
+        userPrompt = `
+    Analyze the attached PDF document and create a learning plan based on its contents.
     
-    The user wants to learn about: "${topic}"
-    This text tells you their learning GOAL and CONTEXT - what aspect of the document they want to understand.
+    The user entered: "${topic}"
+    IMPORTANT: If the user says something like "explain this PDF", "explain the document", "summarize this", or similar generic phrases,
+    they want you to explain THE CONTENTS of the attached PDF - NOT what PDF files are in general.
+    Focus entirely on the ACTUAL CONTENT of this specific document.
     
-    ---DOCUMENT CONTENT (PRIMARY SOURCE)---
-    ${documentText.slice(0, 25000)}
-    ---END DOCUMENT---
-    
-    Your task: Create a structured learning curriculum BASED ON THE DOCUMENT CONTENT above.
-    The chapters should extract and teach the key concepts FROM THE DOCUMENT, organized in a logical learning sequence.
+    Your task: Create a structured learning curriculum that teaches the key concepts found IN THIS DOCUMENT.
+    The chapters should extract and teach what's actually written in the document, organized in a logical learning sequence.
+    DO NOT create chapters about file formats, document types, or generic topics - only teach the specific content from this document.
     
     Context:
     - Urgency: ${urgency}
@@ -102,7 +107,7 @@ export async function generatePlanContent(planId: string, documentText?: string)
     - Language: English
     
     Output a JSON object with:
-    1. "curriculum_strategy": 2-sentence explanation of how you structured the learning path from this document.
+    1. "curriculum_strategy": 2-sentence explanation of how you structured the learning path from this document's content.
     2. "chapters": 5-7 chapters covering the document's key concepts in a logical learning order.
     3. "next_steps": 3-4 concrete follow-up topics based on what's in the document.
     
@@ -120,7 +125,7 @@ export async function generatePlanContent(planId: string, documentText?: string)
   `
     } else {
         // TOPIC-BASED: No document, generate from topic alone
-        prompt = `
+        userPrompt = `
     You are an expert curriculum designer.
     ref: "Think First" - Before generating, determine the "Critical Path" to understanding this topic.
     
@@ -152,11 +157,36 @@ export async function generatePlanContent(planId: string, documentText?: string)
   `
     }
 
+    // Build messages - include PDF as file if present
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const messages: any[] = [
+        { role: "system", content: systemPrompt }
+    ]
+
+    if (pdfBase64) {
+        // Send PDF as file attachment to OpenAI
+        messages.push({
+            role: "user",
+            content: [
+                {
+                    type: "file",
+                    file: {
+                        filename: "document.pdf",
+                        file_data: `data:application/pdf;base64,${pdfBase64}`
+                    }
+                },
+                {
+                    type: "text",
+                    text: userPrompt
+                }
+            ]
+        })
+    } else {
+        messages.push({ role: "user", content: userPrompt })
+    }
+
     const completion = await openai.chat.completions.create({
-        messages: [
-            { role: "system", content: "You are a strict, no-nonsense teacher. Output valid JSON." },
-            { role: "user", content: prompt }
-        ],
+        messages,
         model: "gpt-4o",
         response_format: { type: "json_object" },
     });

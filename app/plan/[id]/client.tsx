@@ -207,13 +207,9 @@ export default function PlanClient({ plan, chapters: serverChapters }: { plan: a
                     setInitializing(true)
                     console.log("Initializing plan outline...")
 
-                    // Check for document text in sessionStorage
-                    const documentText = sessionStorage.getItem(`docText_${plan.id}`)
-                    if (documentText) {
-                        sessionStorage.removeItem(`docText_${plan.id}`) // Clean up
-                    }
-
-                    const res = await generatePlanContent(plan.id, documentText || undefined)
+                    // document_context is now read from DB inside generatePlanContent
+                    const res = await generatePlanContent(plan.id)
+                    console.log(`[Client] generatePlanContent called for plan ID: ${plan.id}`)
                     if (res.success) {
                         // Don't set initializing to false here. 
                         // Wait for the router.refresh() to bring in the new chapters.

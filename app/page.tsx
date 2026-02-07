@@ -60,15 +60,15 @@ function HomeContent() {
       formData.append('level', level)
       formData.append('language', language)
       if (file) {
+        console.log(`[Client] Adding file to FormData: ${file.name}, size: ${file.size}, type: ${file.type}`)
         formData.append('document', file)
+      } else {
+        console.log('[Client] No file selected')
       }
 
+      console.log('[Client] Calling generateLearningPlan...')
       const res = await generateLearningPlan(formData)
       if (res && res.success && res.planId) {
-        // Store document text in sessionStorage for plan page to use
-        if (res.documentText) {
-          sessionStorage.setItem(`docText_${res.planId}`, res.documentText)
-        }
         router.push(`/plan/${res.planId}`)
       } else {
         throw new Error("Failed to get plan ID")
