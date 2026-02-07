@@ -103,6 +103,6 @@ async function generateGeminiCompletion(messages: AIMessage[], jsonMode: boolean
 /**
  * Get the current AI provider name for logging
  */
-export function getAIProvider(): string {
+export async function getAIProvider(): Promise<string> {
     return AI_PROVIDER
 }

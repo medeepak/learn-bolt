@@ -295,7 +295,7 @@ export async function generatePlanContent(planId: string) {
         console.error("AI API Error:", e.message);
         throw new Error(`AI API Error: ${e.message || 'Unknown'}`);
     }
-    console.log(`${getAIProvider()} Response received for:`, topic)
+    console.log(`${await getAIProvider()} Response received for:`, topic)
 
     if (!content) throw new Error("Failed to generate content");
 
