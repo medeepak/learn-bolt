@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import OpenAI from 'openai'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const pdfParse = require('pdf-parse')
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
@@ -14,9 +16,25 @@ export async function generateLearningPlan(formData: FormData) {
     const urgency = formData.get('urgency') as string
     const level = formData.get('level') as string
     const language = formData.get('language') as string
+    const document = formData.get('document') as File | null
 
     if (!topic) {
         throw new Error('Topic is required')
+    }
+
+    // Extract text from PDF if provided
+    let documentText = ''
+    if (document) {
+        try {
+            const arrayBuffer = await document.arrayBuffer()
+            const buffer = Buffer.from(arrayBuffer)
+            const pdfData = await pdfParse(buffer)
+            documentText = pdfData.text.slice(0, 50000) // Limit to ~50k chars
+            console.log(`Extracted ${documentText.length} chars from PDF`)
+        } catch (e) {
+            console.error('PDF parsing failed:', e)
+            // Continue without document content
+        }
     }
 
     const supabase = await createClient()
@@ -45,10 +63,10 @@ export async function generateLearningPlan(formData: FormData) {
         throw new Error("Failed to init plan")
     }
 
-    return { success: true, planId: plan.id }
+    return { success: true, planId: plan.id, documentText: documentText || undefined }
 }
 
-export async function generatePlanContent(planId: string) {
+export async function generatePlanContent(planId: string, documentText?: string) {
     const supabase = await createClient()
 
     // Fetch plan details to get context
@@ -57,14 +75,18 @@ export async function generatePlanContent(planId: string) {
 
     const { topic, urgency, level, language } = plan
 
-    console.log("Step 2: Generating content for Plan ID:", planId)
+    console.log("Step 2: Generating content for Plan ID:", planId, documentText ? `(with ${documentText.length} chars of document context)` : '')
+
+    const documentSection = documentText
+        ? `\n    IMPORTANT - The user has uploaded a document. Use this content to make the learning plan more relevant:\n    ---DOCUMENT START---\n    ${documentText.slice(0, 15000)}\n    ---DOCUMENT END---\n`
+        : ''
 
     const prompt = `
     You are an expert curriculum designer.
     ref: "Think First" - Before generating, determine the "Critical Path" to understanding this topic.
     
     Create a learning plan for: "${topic}"
-
+${documentSection}
     Context:
     - Urgency: ${urgency}
     - Level: ${level}

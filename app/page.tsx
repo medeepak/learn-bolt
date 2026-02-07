@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowRight, Clock, Zap, BookOpen, Search, User } from 'lucide-react'
+import { ArrowRight, Clock, Zap, BookOpen, Search, User, FileUp, X } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -18,6 +18,8 @@ function HomeContent() {
   const [language, setLanguage] = useState('english')
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState('')
+  const [file, setFile] = useState<File | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
   const supabase = createClient()
@@ -28,6 +30,21 @@ function HomeContent() {
       setTopic(topicParam)
     }
   }, [searchParams])
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0]
+    if (selectedFile) {
+      if (selectedFile.size > 10 * 1024 * 1024) {
+        alert('File too large. Max 10MB.')
+        return
+      }
+      if (!selectedFile.type.includes('pdf')) {
+        alert('Only PDF files are supported.')
+        return
+      }
+      setFile(selectedFile)
+    }
+  }
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -42,9 +59,16 @@ function HomeContent() {
       formData.append('urgency', urgency)
       formData.append('level', level)
       formData.append('language', language)
+      if (file) {
+        formData.append('document', file)
+      }
 
       const res = await generateLearningPlan(formData)
       if (res && res.success && res.planId) {
+        // Store document text in sessionStorage for plan page to use
+        if (res.documentText) {
+          sessionStorage.setItem(`docText_${res.planId}`, res.documentText)
+        }
         router.push(`/plan/${res.planId}`)
       } else {
         throw new Error("Failed to get plan ID")
@@ -151,6 +175,38 @@ function HomeContent() {
                 <option value="intermediate">Intermediate</option>
                 <option value="advanced">Advanced</option>
               </select>
+            </div>
+
+            {/* File Upload Pill */}
+            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-gray-200 text-gray-600">
+              <FileUp className="w-4 h-4 text-gray-400" />
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+              {file ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm truncate max-w-[150px]">{file.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => setFile(null)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="text-sm hover:text-gray-900"
+                >
+                  Upload PDF
+                </button>
+              )}
             </div>
           </div>
 
