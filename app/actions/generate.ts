@@ -362,16 +362,39 @@ export async function generateEnglishContent(chapterId: string) {
     if (!chapter) throw new Error("Chapter not found")
 
     const plan = chapter.learning_plans
-    const { topic, level } = plan // Note: We IGNORE plan.language here, forcing English
+    const { topic, level, document_context } = plan
+    const pdfBase64 = document_context as string | null
 
-    console.log(`[Server] Step 1: Generating English detail for chapter ID: ${chapterId}`)
+    // Fetch ALL chapters for this plan to get context from previous ones
+    const { data: allChapters } = await supabase
+        .from('chapters')
+        .select('id, title, key_takeaway, explanation, order_index')
+        .eq('plan_id', plan.id)
+        .order('order_index', { ascending: true })
+
+    // Build context from PREVIOUS chapters (those with lower order_index that have content)
+    const previousChapters = (allChapters || [])
+        .filter(c => c.order_index < chapter.order_index && c.explanation)
+        .map(c => ({
+            title: c.title,
+            key_takeaway: c.key_takeaway,
+            summary: c.explanation?.substring(0, 500) // First 500 chars of explanation
+        }))
+
+    const previousContext = previousChapters.length > 0
+        ? `\n\n    PREVIOUS SECTIONS COMPLETED (build upon this work):\n${previousChapters.map((c, i) =>
+            `    ${i + 1}. "${c.title}"\n       Key Result: ${c.key_takeaway}\n       Summary: ${c.summary}...`
+        ).join('\n')}\n`
+        : ''
+
+    console.log(`[Server] Step 1: Generating English detail for chapter ID: ${chapterId} (with ${previousChapters.length} previous chapters)`)
 
     const prompt = `
     Generate detailed content for this mini-chapter of a "${topic}" course.
 
     Chapter Title: "${chapter.title}"
     Mental Model: "${chapter.mental_model}"
-
+    ${previousContext}
     FIRST, determine the user's INTENT from the topic:
     - LEARNING: User wants to understand concepts → Explain the mechanism (how and why it works)
     - SOLVING: User wants a problem solved → Perform the work and produce the result
@@ -380,6 +403,7 @@ export async function generateEnglishContent(chapterId: string) {
     Context:
     - Level: ${level}
     - Language: English (simple, direct, unambiguous terms)
+    ${previousChapters.length > 0 ? '- THIS IS A CONTINUATION. Reference and build upon the previous sections shown above.' : ''}
 
     GENERATE CONTENT BASED ON INTENT (STRICTLY FOLLOW ONLY THE MATCHING SECTION):
 
@@ -391,6 +415,7 @@ export async function generateEnglishContent(chapterId: string) {
 
     IF SOLVING OR WRITING AN ASSIGNMENT:
     ⚠️ YOU ARE DOING THE WORK, NOT EXPLAINING HOW TO DO IT.
+    ⚠️ THIS IS SECTION ${chapter.order_index + 1} OF THE SOLUTION. Continue from where the previous section left off.
     - explanation: THE ACTUAL COMPLETED WORK for this section. Write the final answer as it would be submitted.
       - WRONG: "To solve this, first identify the variables, then apply the formula"
       - RIGHT: "Given x = 5 and y = 3, the result is x + 2y = 5 + 6 = 11"
@@ -427,11 +452,35 @@ export async function generateEnglishContent(chapterId: string) {
     }
     `
 
+    // Build messages - include PDF if available
+    const messages: AIMessage[] = [
+        { role: "system", content: "You are an expert tutor. Output valid JSON." }
+    ]
+
+    if (pdfBase64) {
+        // Include PDF for context
+        messages.push({
+            role: "user",
+            content: [
+                {
+                    type: "file",
+                    file: {
+                        filename: "document.pdf",
+                        file_data: `data:application/pdf;base64,${pdfBase64}`
+                    }
+                },
+                {
+                    type: "text",
+                    text: prompt
+                }
+            ]
+        })
+    } else {
+        messages.push({ role: "user", content: prompt })
+    }
+
     const content = await generateAICompletion({
-        messages: [
-            { role: "system", content: "You are an expert tutor. Output valid JSON." },
-            { role: "user", content: prompt }
-        ],
+        messages,
         jsonMode: true,
     });
 
