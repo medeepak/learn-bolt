@@ -177,6 +177,21 @@ function HomeContent() {
               </select>
             </div>
 
+            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-gray-200 text-gray-600">
+              <span className="text-gray-400 text-sm">🌐</span>
+              <select
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+                className="bg-transparent focus:outline-none cursor-pointer appearance-none pr-2 hover:text-gray-900"
+              >
+                <option value="english">English</option>
+                <option value="tamil">தமிழ் (Tamil)</option>
+                <option value="telugu">తెలుగు (Telugu)</option>
+                <option value="hindi">हिन्दी (Hindi)</option>
+                <option value="bengali">বাংলা (Bengali)</option>
+              </select>
+            </div>
+
             {/* File Upload Pill */}
             <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-gray-200 text-gray-600">
               <FileUp className="w-4 h-4 text-gray-400" />

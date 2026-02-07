@@ -160,7 +160,7 @@ export async function generatePlanContent(planId: string) {
     Context:
     - Urgency: ${urgency}
     - Level: ${level}
-    - Language: English (simple terms)
+    - Language: ${language.charAt(0).toUpperCase() + language.slice(1)} (generate ALL content directly in this language)
 
     OUTPUT QUALITY RULES:
     - Keep chapter titles short and specific.
@@ -245,7 +245,7 @@ export async function generatePlanContent(planId: string) {
     Context:
     - Urgency: ${urgency}
     - Level: ${level}
-    - Language: English (simple, clear terms)
+    - Language: ${language.charAt(0).toUpperCase() + language.slice(1)} (generate ALL content directly in this language)
     
     Output JSON:
     {
@@ -307,10 +307,7 @@ export async function generatePlanContent(planId: string) {
         throw new Error("AI generated invalid JSON");
     }
 
-    // 2. Translation Step (if needed)
-    if (language && language.toLowerCase() !== 'english') {
-        parsedData = await translateContent(parsedData, language);
-    }
+    // No translation needed - content is generated directly in target language
 
     if (!parsedData.chapters || !Array.isArray(parsedData.chapters)) {
         console.error("Invalid Structure", parsedData)
@@ -386,7 +383,7 @@ export async function generateEnglishContent(chapterId: string) {
     if (!chapter) throw new Error("Chapter not found")
 
     const plan = chapter.learning_plans
-    const { topic, level, document_context } = plan
+    const { topic, level, language, document_context } = plan
     const pdfBase64 = document_context as string | null
 
     // Fetch ALL chapters for this plan to get context from previous ones
@@ -411,7 +408,7 @@ export async function generateEnglishContent(chapterId: string) {
         ).join('\n')}\n`
         : ''
 
-    console.log(`[Server] Step 1: Generating English detail for chapter ID: ${chapterId} (with ${previousChapters.length} previous chapters)`)
+    console.log(`[Server] Generating content for chapter ID: ${chapterId} in ${language || 'english'} (with ${previousChapters.length} previous chapters)`)
 
     const prompt = `
     Generate detailed content for this mini-chapter of a "${topic}" course.
@@ -426,7 +423,7 @@ export async function generateEnglishContent(chapterId: string) {
 
     Context:
     - Level: ${level}
-    - Language: English (simple, direct, unambiguous terms)
+    - Language: ${(language || 'english').charAt(0).toUpperCase() + (language || 'english').slice(1)} (generate ALL content directly in this language)
     ${previousChapters.length > 0 ? '- THIS IS A CONTINUATION. Reference and build upon the previous sections shown above.' : ''}
 
     GENERATE CONTENT BASED ON INTENT (STRICTLY FOLLOW ONLY THE MATCHING SECTION):
