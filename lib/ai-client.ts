@@ -57,7 +57,7 @@ async function generateOpenAICompletion(messages: AIMessage[], jsonMode: boolean
 
 async function generateGeminiCompletion(messages: AIMessage[], jsonMode: boolean): Promise<string> {
     const model = gemini.getGenerativeModel({
-        model: "gemini-2.5-flash-preview-05-20",
+        model: "gemini-2.5-flash",
         generationConfig: jsonMode ? { responseMimeType: "application/json" } : undefined,
     })
 
