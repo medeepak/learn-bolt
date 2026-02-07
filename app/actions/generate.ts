@@ -4,8 +4,6 @@ import { createClient } from '@/lib/supabase/server'
 import OpenAI from 'openai'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse = require('pdf-parse')
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
@@ -28,6 +26,9 @@ export async function generateLearningPlan(formData: FormData) {
         try {
             const arrayBuffer = await document.arrayBuffer()
             const buffer = Buffer.from(arrayBuffer)
+            // Dynamic import to avoid module-load-time DOMMatrix error
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const pdfParse = (await import('pdf-parse') as any).default ?? (await import('pdf-parse'))
             const pdfData = await pdfParse(buffer)
             documentText = pdfData.text.slice(0, 50000) // Limit to ~50k chars
             console.log(`Extracted ${documentText.length} chars from PDF`)
@@ -77,20 +78,58 @@ export async function generatePlanContent(planId: string, documentText?: string)
 
     console.log("Step 2: Generating content for Plan ID:", planId, documentText ? `(with ${documentText.length} chars of document context)` : '')
 
-    const documentSection = documentText
-        ? `\n    IMPORTANT - The user has uploaded a document. Use this content to make the learning plan more relevant:\n    ---DOCUMENT START---\n    ${documentText.slice(0, 15000)}\n    ---DOCUMENT END---\n`
-        : ''
+    // Build prompt based on whether document is provided
+    let prompt: string
 
-    const prompt = `
+    if (documentText) {
+        // DOCUMENT-BASED: The document is the PRIMARY source for the curriculum
+        prompt = `
+    You are an expert curriculum designer creating a learning plan from a specific document.
+    
+    The user wants to learn about: "${topic}"
+    This text tells you their learning GOAL and CONTEXT - what aspect of the document they want to understand.
+    
+    ---DOCUMENT CONTENT (PRIMARY SOURCE)---
+    ${documentText.slice(0, 25000)}
+    ---END DOCUMENT---
+    
+    Your task: Create a structured learning curriculum BASED ON THE DOCUMENT CONTENT above.
+    The chapters should extract and teach the key concepts FROM THE DOCUMENT, organized in a logical learning sequence.
+    
+    Context:
+    - Urgency: ${urgency}
+    - Level: ${level}
+    - Language: English
+    
+    Output a JSON object with:
+    1. "curriculum_strategy": 2-sentence explanation of how you structured the learning path from this document.
+    2. "chapters": 5-7 chapters covering the document's key concepts in a logical learning order.
+    3. "next_steps": 3-4 concrete follow-up topics based on what's in the document.
+    
+    Each chapter MUST have:
+    - title: string (Action-oriented, derived from document content)
+    - mental_model: string (A strong analogy to explain the concept)
+    - key_takeaway: string (One high-value insight from the document)
+    
+    Structure:
+    {
+      "curriculum_strategy": "...",
+      "chapters": [{ "title": "...", "mental_model": "...", "key_takeaway": "..." }],
+      "next_steps": ["..."]
+    }
+  `
+    } else {
+        // TOPIC-BASED: No document, generate from topic alone
+        prompt = `
     You are an expert curriculum designer.
     ref: "Think First" - Before generating, determine the "Critical Path" to understanding this topic.
     
     Create a learning plan for: "${topic}"
-${documentSection}
+
     Context:
     - Urgency: ${urgency}
     - Level: ${level}
-    - Language: English (Always generate reasoning in English first)
+    - Language: English
 
     Goal: The user must understand the *Broad Concepts* and the *Specific Mechanics*. 
     
@@ -111,6 +150,7 @@ ${documentSection}
       "next_steps": ["..."]
     }
   `
+    }
 
     const completion = await openai.chat.completions.create({
         messages: [
