@@ -63,7 +63,7 @@ function HomeContent() {
       <header className="px-6 py-4 flex justify-between items-center border-b border-gray-100 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="flex items-center gap-2 font-semibold text-xl tracking-tight text-gray-900">
           <Zap className="w-5 h-5 text-amber-500 fill-amber-500" />
-          <span>Emergency Learning</span>
+          <span>Express Learning</span>
         </div>
         <nav className="flex items-center gap-6">
           <Link href="/library" className="text-sm font-medium text-gray-600 hover:text-gray-900">
@@ -150,24 +150,6 @@ function HomeContent() {
                 <option value="beginner">Beginner</option>
                 <option value="intermediate">Intermediate</option>
                 <option value="advanced">Advanced</option>
-              </select>
-            </div>
-
-            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-gray-200 text-gray-600">
-              <span className="text-gray-400 font-serif">Aa</span>
-              <select
-                value={language}
-                onChange={(e) => setLanguage(e.target.value)}
-                className="bg-transparent focus:outline-none cursor-pointer appearance-none pr-2 hover:text-gray-900"
-              >
-                <option value="english">English</option>
-                <option value="hindi">Hindi</option>
-                <option value="hinglish">Hinglish</option>
-                <option value="tamil">Tamil</option>
-                <option value="telugu">Telugu</option>
-                <option value="malayalam">Malayalam</option>
-                <option value="kannada">Kannada</option>
-                <option value="bengali">Bengali</option>
               </select>
             </div>
           </div>

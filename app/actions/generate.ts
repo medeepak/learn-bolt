@@ -286,7 +286,7 @@ export async function translateChapterContent(chapterId: string) {
     if (error) throw new Error("Failed to save translation")
 
     revalidatePath(`/plan/${chapter.learning_plans.id}`, 'page')
-    return { success: true }
+    return { success: true, data: translatedData }
 }
 
 // Helper: Translate JSON Content

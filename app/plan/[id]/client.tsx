@@ -7,7 +7,7 @@ import mermaid from 'mermaid'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { generateImage } from '../../actions/image'
-import { generateLearningPlan, generatePlanContent, generateEnglishContent, translateChapterContent } from '../../actions/generate'
+import { generateLearningPlan, generatePlanContent, generateEnglishContent } from '../../actions/generate'
 
 // ... existing mermaid init ...
 
@@ -157,7 +157,8 @@ export default function PlanClient({ plan, chapters: serverChapters }: { plan: a
     // Local state for chapters to allow optimistic/direct updates
     const [chapters, setChapters] = useState(serverChapters)
 
-    // Sync with server updates, but DON'T overwrite if local has more data
+    // Sync with server updates, but DON'T overwrite if local has content
+    // Local is always "fresher" since we apply optimistic updates directly
     useEffect(() => {
         setChapters(prev => {
             // If server has more chapters than local, use server as base
@@ -171,20 +172,22 @@ export default function PlanClient({ plan, chapters: serverChapters }: { plan: a
                 const serverChapter = serverChapters[i]
                 if (!serverChapter) return localChapter
 
-                // If local has explanation but server doesn't, keep local (server is stale)
+                // If local has explanation, ALWAYS keep local
+                // This prevents stale server data from overwriting optimistic/translated content
                 const localHasExplanation = localChapter.explanation && localChapter.explanation.length > 0
-                const serverHasExplanation = serverChapter.explanation && serverChapter.explanation.length > 0
 
-                if (localHasExplanation && !serverHasExplanation) {
-                    console.log(`[Sync] Keeping local explanation for ${localChapter.title} (server is stale)`)
+                if (localHasExplanation) {
+                    console.log(`[Sync] Keeping local content for ${localChapter.title} (local is fresh)`)
                     return localChapter
                 }
 
-                // Otherwise, prefer server (it's fresher or equal)
+                // Only use server if local has no content
+                console.log(`[Sync] Using server content for ${localChapter.title} (local has no content)`)
                 return serverChapter
             })
         })
     }, [serverChapters])
+
 
     const router = useRouter()
     const [currentIndex, setCurrentIndex] = useState(0)
@@ -193,8 +196,6 @@ export default function PlanClient({ plan, chapters: serverChapters }: { plan: a
     const [initializing, setInitializing] = useState(chapters.length === 0)
     const [generatingChapterId, setGeneratingChapterId] = useState<string | null>(null)
     const [failedChapters, setFailedChapters] = useState<Set<string>>(new Set())
-    const [translatingChapters, setTranslatingChapters] = useState<Set<string>>(new Set())
-    const [checkedTranslations, setCheckedTranslations] = useState<Set<string>>(new Set())
 
     const processedRef = useRef(new Set<string>())
 
@@ -278,54 +279,12 @@ export default function PlanClient({ plan, chapters: serverChapters }: { plan: a
                 return; // One at a time
             }
 
-            // 2. Check for Pending Translations (Localization Step)
-            // Rule: Content exists + Language != English + Not currently translating + Not failed
-            const targetLang = plan.language?.toLowerCase()
-            const needsTranslation = chapters.find(c =>
-                c.explanation && c.explanation.length > 0 &&
-                targetLang && targetLang !== 'english' &&
-                !translatingChapters.has(c.id) &&
-                !failedChapters.has(c.id) &&
-                // Heuristic: If we don't have a DB flag, we rely on session tracking. 
-                // Only do this if we haven't marked it as "done" locally? 
-                // Wait - for MVP, we just rely on explicit user "Retry" if it looks wrong? 
-                // NO, we want Auto-Resume.
-                // I can just "Attempt" translation once per session per chapter? 
-                // Let's stick to the prompt plan: "Auto-Resume on page load".
-                // I will use a local storage flag or just a session set to prevent loops.
-                // Let's use a "checkedTranslations" state.
-                !checkedTranslations.has(c.id)
-            )
-
-            // We need a new state: checkedTranslations to avoid infinite loops
-
-            if (needsTranslation) {
-                console.log(`[Client] Found chapter needing translation check: ${needsTranslation.title}`)
-                setTranslatingChapters(prev => new Set(prev).add(needsTranslation.id))
-                setCheckedTranslations(prev => new Set(prev).add(needsTranslation.id)) // Mark checked so we don't loop
-
-                try {
-                    const res = await translateChapterContent(needsTranslation.id)
-                    if (res.success && !res.skipped) {
-                        router.refresh()
-                    }
-                } catch (e) {
-                    console.error(`[Client] Translation failed`, e)
-                    // We don't mark as "failedChapter" because English content is valid.
-                    // We just let the user see the English content.
-                } finally {
-                    setTranslatingChapters(prev => {
-                        const next = new Set(prev)
-                        next.delete(needsTranslation.id)
-                        return next
-                    })
-                }
-            }
+            // NOTE: Translation step removed - English only for now
 
         }
 
         processQueue()
-    }, [chapters, initializing, router, plan.language])
+    }, [chapters, initializing, router])
 
     // Update URL hash for sharing/bookmarking
     useEffect(() => {
@@ -462,13 +421,6 @@ export default function PlanClient({ plan, chapters: serverChapters }: { plan: a
                                 )
                             ) : (
                                 <>
-                                    {/* Translation State Overlay */}
-                                    {translatingChapters.has(currentChapter.id) && (
-                                        <div className="mb-6 p-4 bg-blue-50 text-blue-700 rounded-xl flex items-center justify-center gap-3 animate-pulse border border-blue-100">
-                                            <Loader2 className="w-4 h-4 animate-spin" />
-                                            <span className="text-sm font-medium">Translating to {plan.language}...</span>
-                                        </div>
-                                    )}
                                     {/* Mental Model - The "Anchor" */}
                                     {currentChapter.mental_model && (
                                         <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-5 shadow-sm">
