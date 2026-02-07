@@ -289,11 +289,17 @@ export async function generatePlanContent(planId: string) {
         messages.push({ role: "user", content: userPrompt })
     }
 
-    const completion = await openai.chat.completions.create({
-        messages,
-        model: "gpt-5-nano",
-        response_format: { type: "json_object" },
-    });
+    let completion;
+    try {
+        completion = await openai.chat.completions.create({
+            messages,
+            model: "gpt-5-nano",
+            response_format: { type: "json_object" },
+        });
+    } catch (e: any) {
+        console.error("OpenAI API Error:", e.message, e.status, e.code);
+        throw new Error(`OpenAI API Error: ${e.message || e.code || 'Unknown'}`);
+    }
     console.log("OpenAI Response received for:", topic)
 
     const content = completion.choices[0].message.content;
