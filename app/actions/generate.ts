@@ -88,69 +88,173 @@ export async function generatePlanContent(planId: string) {
     let userPrompt: string
 
     if (pdfBase64) {
-        // DOCUMENT-BASED: The PDF is the PRIMARY source for the curriculum
+        // DOCUMENT-BASED: The PDF is the PRIMARY source
         userPrompt = `
-    Analyze the attached PDF document and create a learning plan based on its contents.
-    
+    Analyze the attached PDF document carefully.
+
     The user entered: "${topic}"
-    IMPORTANT: If the user says something like "explain this PDF", "explain the document", "summarize this", or similar generic phrases,
-    they want you to explain THE CONTENTS of the attached PDF - NOT what PDF files are in general.
-    Focus entirely on the ACTUAL CONTENT of this specific document.
+
+    ═══════════════════════════════════════════════════════════════
+    INTENT DETECTION (choose EXACTLY ONE - this determines everything)
+    ═══════════════════════════════════════════════════════════════
     
-    Your task: Create a structured learning curriculum that teaches the key concepts found IN THIS DOCUMENT.
-    The chapters should extract and teach what's actually written in the document, organized in a logical learning sequence.
-    DO NOT create chapters about file formats, document types, or generic topics - only teach the specific content from this document.
+    SOLVING - User wants you to DO THE WORK and produce a deliverable:
+    Keywords: "solve", "answer", "calculate", "complete", "write", "do", "finish", "assignment", "homework", "help me with", "work on"
+    Examples: "Solve this problem", "Complete this assignment", "Write an essay on...", "Calculate the revenue"
     
+    PREPARING - User wants quick revision/summary for test/interview:
+    Keywords: "prepare", "revise", "interview", "exam", "test", "review", "remember", "cram", "last minute", "key points"
+    Examples: "Prepare for interview", "Revise for exam", "What to remember for test"
+    
+    LEARNING - User wants to UNDERSTAND concepts (default):
+    Keywords: "explain", "teach", "understand", "what is", "how does", "why", "learn about"
+    Examples: "Explain machine learning", "Teach me about...", "What is quantum physics"
+    
+    DECISION RULES:
+    1. If the PDF contains problems/questions/assignments → SOLVING
+    2. If user says "solve", "answer", "complete", "write", "do this" → SOLVING
+    3. If user mentions exam/interview/test/revision → PREPARING
+    4. If unsure between SOLVING and LEARNING → choose SOLVING (it's more actionable)
+    5. Only choose LEARNING if user explicitly wants to understand/learn concepts
+    
+    Do NOT mix intents. The detected intent controls ALL subsequent output.
+
+    CRITICAL: Generate mini-chapters tailored to the intent using ONLY information from the PDF.
+    - If the PDF does not contain enough information to fully satisfy the request, still produce the best possible chapters from what exists in the PDF, and note missing info in "next_steps".
+
+    IF LEARNING:
+    - Each chapter teaches ONE concept from the document
+    - Simple language, bite-sized learning
+    - Each chapter continues from where the previous left off (logical progression, no jumps)
+    - Include visual cues (diagrams, examples)
+    - Focus on understanding the "why" and "how"
+
+    IF SOLVING OR WRITING AN ASSIGNMENT:
+    ⚠️ CRITICAL: You are NOT making a plan. You ARE writing the actual assignment submission.
+    - Each chapter = ONE COMPLETED SECTION of the assignment answer
+    - key_takeaway = THE ACTUAL WRITTEN CONTENT that would be submitted (not a description of what to write)
+    
+    WRONG vs RIGHT examples:
+    
+    Math/Calculation:
+    - WRONG: "Calculate the total cost"
+    - RIGHT: "Total cost = $150 + $75 + $25 = $250"
+    
+    Business/Product:
+    - WRONG: "Develop a solution to improve the completion rate"
+    - RIGHT: "Solution: Implement 'Long Trip Bonus' - drivers receive 1.5x surge on trips >50 miles, shown upfront before accepting"
+    
+    Analysis:
+    - WRONG: "Analyze the market data and identify trends"
+    - RIGHT: "Market analysis: Long-distance trips grew 23% YoY. Key insight: 68% of cancellations occur within 5 mins of request, suggesting driver hesitancy, not rider issues."
+    
+    Design/Product:
+    - WRONG: "Design a feature to address user needs"
+    - RIGHT: "Feature: 'Trip Preview' screen showing exact route, estimated earnings, and break stops. Mockup: [description of UI elements]"
+    
+    Write the actual answer, not what the answer should contain.
+
+    IF PREPARING:
+    - Each chapter = One key point to remember
+    - Quick, memorable, last-minute revision format
+    - Focus on "what to remember" not "how to understand"
+    - Include mnemonics, quick facts, common mistakes to avoid
+    - Each chapter continues where previous left off (structured coverage, no repetition)
+
     Context:
     - Urgency: ${urgency}
     - Level: ${level}
-    - Language: English
-    
-    Output a JSON object with:
-    1. "curriculum_strategy": 2-sentence explanation of how you structured the learning path from this document's content.
-    2. "chapters": 5-7 chapters covering the document's key concepts in a logical learning order.
-    3. "next_steps": 3-4 concrete follow-up topics based on what's in the document.
-    
-    Each chapter MUST have:
-    - title: string (Action-oriented, derived from document content)
-    - mental_model: string (A strong analogy to explain the concept)
-    - key_takeaway: string (One high-value insight from the document)
-    
-    Structure:
+    - Language: English (simple terms)
+
+    OUTPUT QUALITY RULES:
+    - Keep chapter titles short and specific.
+    - Ensure every chapter has a distinct "mental_model" (analogy/approach/memory trick depending on intent).
+    - Keep "key_takeaway" to 1–2 sentences max, but dense and specific.
+    - "curriculum_strategy" must be exactly 2 sentences, describing how you chose the chapter sequence and how it fits the intent.
+    - "next_steps" must be actionable and specific (3–7 items).
+
+    Output JSON (valid JSON only, no extra text):
     {
-      "curriculum_strategy": "...",
-      "chapters": [{ "title": "...", "mental_model": "...", "key_takeaway": "..." }],
-      "next_steps": ["..."]
+    "intent": "learning" | "solving" | "preparing",
+    "curriculum_strategy": "2-sentence approach explanation",
+    "chapters": [{ "title": "...", "mental_model": "...", "key_takeaway": "..." }],
+    "next_steps": ["..."]
     }
+
+    Chapter fields based on intent:
+    - LEARNING: title=concept, mental_model=analogy, key_takeaway=key insight
+    - SOLVING: title=step description, mental_model=approach used, key_takeaway=ACTUAL RESULT
+    - PREPARING: title=topic to remember, mental_model=memory trick, key_takeaway=key fact
   `
     } else {
         // TOPIC-BASED: No document, generate from topic alone
         userPrompt = `
-    You are an expert curriculum designer.
-    ref: "Think First" - Before generating, determine the "Critical Path" to understanding this topic.
+    You are an expert at helping people learn, solve problems, and prepare for challenges.
+
+    The user entered: "${topic}"
+
+    ═══════════════════════════════════════════════════════════════
+    INTENT DETECTION (choose EXACTLY ONE - this determines everything)
+    ═══════════════════════════════════════════════════════════════
     
-    Create a learning plan for: "${topic}"
+    SOLVING - User wants you to DO THE WORK:
+    Keywords: "solve", "answer", "calculate", "complete", "write", "do", "finish", "build", "create", "fix", "how to"
+    Examples: "Solve this", "How to build a website", "Write a function for..."
+    
+    PREPARING - User wants quick revision for test/interview:
+    Keywords: "prepare", "revise", "interview", "exam", "test", "review", "remember", "cram"
+    Examples: "Prepare for JavaScript interview", "Revise data structures for exam"
+    
+    LEARNING - User wants to UNDERSTAND concepts:
+    Keywords: "explain", "teach", "understand", "what is", "how does", "why", "learn about"
+    Examples: "Explain machine learning", "What is blockchain"
+    
+    DECISION RULES:
+    1. "How to" questions → SOLVING (user wants the actual steps done)
+    2. Build/create/write requests → SOLVING
+    3. Interview/exam/test mentioned → PREPARING
+    4. If unsure between SOLVING and LEARNING → choose SOLVING
+    5. Only LEARNING if explicitly asking to understand concepts
+    
+    Do NOT mix intents. The detected intent controls ALL output.
+
+    Generate mini-chapters tailored to the intent:
+
+    IF LEARNING:
+    - Bite-sized chapters that teach ONE concept at a time
+    - Chapters must progress logically, each continuing from where the previous left off
+    - Use simple language and intuitive visual cues
+    - Focus on explaining the “how” and “why” of the concept
+
+    IF SOLVING OR WRITING AN ASSIGNMENT:
+    ⚠️ CRITICAL: You are NOT giving instructions. You ARE doing the work.
+    - Each chapter = ONE COMPLETED SECTION of the final answer
+    - Chapter title = Section heading (e.g., "Introduction", "Analysis", "Result")
+    - key_takeaway = THE ACTUAL WRITTEN CONTENT (the text, calculation, or answer)
+    - WRONG: "In this step, analyze the data using regression"
+    - RIGHT: "The regression analysis shows y = 2.3x + 4.5, with R² = 0.89"
+    - WRONG: "Calculate the total cost"
+    - RIGHT: "Total cost = $150 + $75 + $25 = $250"
+    - Output should be copy-paste ready for submission
+
+    IF PREPARING:
+    - Each chapter is a high-signal revision point
+    - No deep explanations — only what is essential to remember
+    - Use memorable takeaways, mnemonics, formulas, and common mistakes
+    - Focus on recall speed and accuracy, not conceptual depth
+
+    NOTE:
+    - Ponder deeply about the problem, research well and come with a solid plan
 
     Context:
     - Urgency: ${urgency}
     - Level: ${level}
-    - Language: English
-
-    Goal: The user must understand the *Broad Concepts* and the *Specific Mechanics*. 
+    - Language: English (simple, clear terms)
     
-    Output a JSON object with:
-    1. "curriculum_strategy": A 2-sentence explanation of why you chose this specific path.
-    2. "chapters": A list of 5-7 items.
-    3. "next_steps": A list of 3–4 concrete follow-up topics.
-
-    Each chapter MUST have:
-    - title: string (Action-oriented)
-    - mental_model: string (A strong analogy)
-    - key_takeaway: string (One high-value insight)
-
-    Structure:
+    Output JSON:
     {
-      "curriculum_strategy": "...",
+      "intent": "learning" | "solving" | "preparing",
+      "curriculum_strategy": "2-sentence approach",
       "chapters": [{ "title": "...", "mental_model": "...", "key_takeaway": "..." }],
       "next_steps": ["..."]
     }
@@ -263,28 +367,54 @@ export async function generateEnglishContent(chapterId: string) {
     console.log(`[Server] Step 1: Generating English detail for chapter ID: ${chapterId}`)
 
     const prompt = `
-    Write the detailed content for this chapter of a "${topic}" course.
-    
+    Generate detailed content for this mini-chapter of a "${topic}" course.
+
     Chapter Title: "${chapter.title}"
     Mental Model: "${chapter.mental_model}"
-    
+
+    FIRST, determine the user's INTENT from the topic:
+    - LEARNING: User wants to understand concepts → Explain the mechanism (how and why it works)
+    - SOLVING: User wants a problem solved → Perform the work and produce the result
+    - PREPARING: User is revising for a test/interview → Focus on recall, patterns, and mistakes
+
     Context:
     - Level: ${level}
-    - Language: English (STRICTLY ENGLISH)
+    - Language: English (simple, direct, unambiguous terms)
 
-    Instruction:
-    - Be concrete. Use specific examples.
-    - Explain the MECHANISM (How it works).
-    - Explanation should be 5-8 lines.
-    - For visual_type: MUST be one of "image", "mermaid", or "react" (table).
-      - Use "image" for concepts that benefit from an illustration.
-      - Use "mermaid" for processes, flows, or hierarchies. Provide valid Mermaid diagram code.
-      - Use "react" for comparisons or data that fits a table. Provide JSON array.
-    - For visual_content: Provide the content matching the visual_type.
-      - If "image": a detailed prompt describing the illustration.
-      - If "mermaid": valid Mermaid diagram code.
-      - If "react": JSON array for table data.
+    GENERATE CONTENT BASED ON INTENT (STRICTLY FOLLOW ONLY THE MATCHING SECTION):
 
+    IF LEARNING:
+    - explanation: Explain HOW the concept works internally (5–8 concise lines, no fluff)
+    - common_misconception: What beginners typically misunderstand or confuse
+    - real_world_example: A concrete, relatable example using numbers, objects, or situations
+    - quiz_question / quiz_answer: Test conceptual understanding (not memorization)
+
+    IF SOLVING OR WRITING AN ASSIGNMENT:
+    ⚠️ YOU ARE DOING THE WORK, NOT EXPLAINING HOW TO DO IT.
+    - explanation: THE ACTUAL COMPLETED WORK for this section. Write the final answer as it would be submitted.
+      - WRONG: "To solve this, first identify the variables, then apply the formula"
+      - RIGHT: "Given x = 5 and y = 3, the result is x + 2y = 5 + 6 = 11"
+      - WRONG: "Analyze the market conditions and write your recommendation"  
+      - RIGHT: "Based on the Q3 data showing 15% growth, I recommend increasing marketing spend by $50,000"
+    - common_misconception: Common mistakes in the final output
+    - real_world_example: THE EXACT OUTPUT (number, formula with values, written paragraph)
+    - quiz_question / quiz_answer: Verify the result is correct
+    - Write as if copying directly into homework. NO theory. NO advice. JUST THE ANSWER.
+
+    IF PREPARING:
+    - explanation: High-signal revision points only (formulas, rules, shortcuts, mnemonics). Bullet-style preferred.
+    - common_misconception: Common exam/interview traps to avoid
+    - real_world_example: A quick sample question and answer in way to present it
+    - quiz_question / quiz_answer: Quick recall or elimination-based question
+
+    Visual type (choose ONE):
+    - "image": For concepts or final solutions that benefit from visual intuition
+    - "mermaid": For processes, flows, decision paths, or hierarchies (valid Mermaid code only)
+    - "react": For comparisons or structured data (valid JSON array only)
+
+    The visual must reinforce the detected intent (not distract from it).
+
+    
     Structure JSON:
     {
        "explanation": "...",
