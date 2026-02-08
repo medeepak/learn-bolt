@@ -6,7 +6,7 @@ export default function LoginPage() {
         <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gray-50">
             <Link href="/" className="flex items-center gap-2 font-semibold text-xl tracking-tight text-gray-900 mb-8">
                 <Zap className="w-6 h-6 text-amber-500 fill-amber-500" />
-                <span>Express Learning</span>
+                <span>Tiny Lessons</span>
             </Link>
 
             <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 w-full max-w-md text-center">

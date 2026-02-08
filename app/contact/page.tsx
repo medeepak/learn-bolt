@@ -24,7 +24,7 @@ export default function ContactPage() {
                             </div>
                             <div>
                                 <h3 className="font-semibold text-gray-900">Email Us</h3>
-                                <p className="text-gray-600">support@expresslearning.com</p>
+                                <p className="text-gray-600">support@tinylessons.com</p>
                                 <p className="text-sm text-gray-400 mt-1">We typically reply within 24 hours.</p>
                             </div>
                         </div>

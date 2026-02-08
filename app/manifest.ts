@@ -2,8 +2,8 @@ import { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
     return {
-        name: 'Express Learning Platform',
-        short_name: 'ExpressLearn',
+        name: 'Tiny Lessons',
+        short_name: 'TinyLessons',
         description: 'Learn anything fast with visual, just-in-time chapters.',
         start_url: '/',
         display: 'standalone',

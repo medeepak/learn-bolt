@@ -1,4 +1,4 @@
-Express Learning Platform (MVP, B2C) - PRD
+Tiny Lessons (MVP, B2C) - PRD
 
 1. Product Overview
 Product Name (Working)

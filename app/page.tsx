@@ -87,7 +87,7 @@ function HomeContent() {
       <header className="px-6 py-4 flex justify-between items-center border-b border-gray-100 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="flex items-center gap-2 font-semibold text-xl tracking-tight text-gray-900">
           <Zap className="w-5 h-5 text-amber-500 fill-amber-500" />
-          <span>Express Learning</span>
+          <span>Tiny Lessons</span>
         </div>
         <nav className="flex items-center gap-6">
           <Link href="/library" className="text-sm font-medium text-gray-600 hover:text-gray-900">

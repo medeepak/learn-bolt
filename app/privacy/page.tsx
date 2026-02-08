@@ -16,7 +16,7 @@ export default function PrivacyPage() {
                     <p>Last updated: {new Date().toLocaleDateString()}</p>
 
                     <h2>1. Introduction</h2>
-                    <p>Welcome to Express Learning Platform ("we," "our," or "us"). We are committed to protecting your personal information and your right to privacy.</p>
+                    <p>Welcome to Tiny Lessons ("we," "our," or "us"). We are committed to protecting your personal information and your right to privacy.</p>
 
                     <h2>2. Information We Collect</h2>
                     <p>We collect information that you provide directly to us, such as when you create a generalized learning plan. This may include uploaded documents which are processed transiently for the purpose of generating content.</p>
