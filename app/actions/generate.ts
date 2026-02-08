@@ -287,11 +287,14 @@ export async function generatePlanContent(planId: string) {
 
     let content: string;
     try {
+        console.time('[Performance] Step 1 (Plan Generation) AI Latency');
         content = await generateAICompletion({
             messages: messages as AIMessage[],
             jsonMode: true,
         });
+        console.timeEnd('[Performance] Step 1 (Plan Generation) AI Latency');
     } catch (e: any) {
+        console.timeEnd('[Performance] Step 1 (Plan Generation) AI Latency');
         console.error("AI API Error:", e.message);
         throw new Error(`AI API Error: ${e.message || 'Unknown'}`);
     }
@@ -500,22 +503,53 @@ export async function generateEnglishContent(chapterId: string) {
         messages.push({ role: "user", content: prompt })
     }
 
+    console.time(`[Performance] Step 2 (Content Generation) AI Latency for ${chapterId}`);
     const content = await generateAICompletion({
         messages,
         jsonMode: true,
     });
+    console.timeEnd(`[Performance] Step 2 (Content Generation) AI Latency for ${chapterId}`);
 
     if (!content) throw new Error("Empty content from AI");
 
     let parsedData;
     try {
-        parsedData = JSON.parse(content);
-        if (!parsedData.explanation || parsedData.explanation.length < 50) {
+        // Clean content - sometimes weak models wrap JSON in markdown blocks
+        let cleanContent = content.trim();
+        if (cleanContent.startsWith('```')) {
+            cleanContent = cleanContent.replace(/^```(json)?\n?/, '').replace(/\n?```$/, '');
+        }
+
+        parsedData = JSON.parse(cleanContent);
+
+        // Normalize explanation if it's an array (Gemini often does this)
+        if (Array.isArray(parsedData.explanation)) {
+            parsedData.explanation = parsedData.explanation.join('\n\n');
+        }
+        if (Array.isArray(parsedData.common_misconception)) {
+            parsedData.common_misconception = parsedData.common_misconception.join('\n\n');
+        }
+        if (Array.isArray(parsedData.real_world_example)) {
+            parsedData.real_world_example = parsedData.real_world_example.join('\n\n');
+        }
+
+        // Validation - ensure explanation exists and has reasonable length
+        // Note: Non-latin scripts (Chinese/Japanese/etc) might be shorter, but 50 chars is still very low.
+        // We'll keep 20 as a safe lower bound for "meaningful content".
+        if (!parsedData.explanation || parsedData.explanation.length < 20) {
+            console.error("Content too short:", parsedData.explanation)
             throw new Error("AI returned explanation too short")
         }
-    } catch (e) {
-        console.error("JSON Parse Error", e)
-        throw new Error("Invalid JSON from AI")
+    } catch (e: any) {
+        console.error("JSON Parse Error. Raw content:", content)
+        console.error("Error details:", e.message)
+        // Check if it's the specific "too short" error we threw above
+        if (e.message === "AI returned explanation too short") {
+            throw e
+        }
+        // Try to recover partial JSON if possible using regex
+        // Or just fail gracefully with a clearer message
+        throw new Error(`Invalid JSON from AI: ${e.message}`)
     }
 
     // Save English Content
@@ -605,5 +639,12 @@ async function translateContent(data: any, targetLang: string) {
         jsonMode: true,
     });
 
-    return JSON.parse(translated || "{}");
+    const parsed = JSON.parse(translated || "{}");
+
+    // Normalize potential arrays from Gemini
+    if (Array.isArray(parsed.explanation)) parsed.explanation = parsed.explanation.join('\n\n');
+    if (Array.isArray(parsed.common_misconception)) parsed.common_misconception = parsed.common_misconception.join('\n\n');
+    if (Array.isArray(parsed.real_world_example)) parsed.real_world_example = parsed.real_world_example.join('\n\n');
+
+    return parsed;
 }

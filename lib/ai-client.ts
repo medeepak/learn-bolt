@@ -1,4 +1,4 @@
-'use server'
+
 
 import OpenAI from 'openai'
 import { GoogleGenerativeAI } from '@google/generative-ai'
@@ -8,7 +8,7 @@ const AI_PROVIDER = process.env.AI_PROVIDER || 'openai'
 
 // Initialize clients
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-const gemini = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY || '')
+export const gemini = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY || '')
 
 export type AIMessage = {
     role: 'system' | 'user' | 'assistant'

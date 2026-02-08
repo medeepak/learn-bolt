@@ -8,6 +8,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { generateImage } from '../../actions/image'
 import { generateLearningPlan, generatePlanContent, generateEnglishContent } from '../../actions/generate'
+import ReactMarkdown from 'react-markdown'
 
 // ... existing mermaid init ...
 
@@ -40,6 +41,28 @@ const MermaidDiagram = ({ chart }: { chart: string }) => {
                 // Escape special characters in labels that might cause issues
                 cleanChart = cleanChart.replace(/[\u201C\u201D]/g, '"') // Smart quotes to regular quotes
                 cleanChart = cleanChart.replace(/[\u2018\u2019]/g, "'") // Smart apostrophes
+
+                // Fix [] - Quote content inside if not already quoted
+                cleanChart = cleanChart.replace(/\[([^\]]+)\]/g, (match, content) => {
+                    const trimmed = content.trim();
+                    if (trimmed.startsWith('"') && trimmed.endsWith('"')) return match;
+                    return `["${trimmed.replace(/"/g, "'")}"]`;
+                })
+
+                // Fix {} - Quote content inside
+                cleanChart = cleanChart.replace(/\{([^}]+)\}/g, (match, content) => {
+                    const trimmed = content.trim();
+                    if (trimmed.startsWith('"') && trimmed.endsWith('"')) return match;
+                    return `{"${trimmed.replace(/"/g, "'")}"}`;
+                })
+
+                // Fix () - Quote content inside, handling nested () like ((Text))
+                cleanChart = cleanChart.replace(/\(([^)]+)\)/g, (match, content) => {
+                    const trimmed = content.trim();
+                    if (trimmed.startsWith('"') && trimmed.endsWith('"')) return match;
+                    // Dont quote if it looks like a special shape start/end? No, quote everything.
+                    return `("${trimmed.replace(/"/g, "'")}")`;
+                })
 
                 const { svg } = await mermaid.render(`mermaid-${Math.random().toString(36).substr(2, 9)}`, cleanChart);
                 setSvg(svg)
@@ -294,7 +317,8 @@ export default function PlanClient({ plan, chapters: serverChapters }: { plan: a
                                     ? { ...c, ...res.data } // Merge new content (explanation, etc)
                                     : c
                             )
-                            console.log(`[Client] Updated chapter explanation:`, updated.find(c => c.id === pendingChapter.id)?.explanation?.substring(0, 50))
+                            const exp = updated.find(c => c.id === pendingChapter.id)?.explanation
+                            console.log(`[Client] Updated chapter explanation:`, typeof exp === 'string' ? exp.substring(0, 50) : typeof exp)
                             return updated
                         })
 
@@ -483,9 +507,9 @@ export default function PlanClient({ plan, chapters: serverChapters }: { plan: a
                                         <AIImage prompt={currentChapter.visual_content} />
                                     )}
 
-                                    <p className="text-xl text-gray-700 leading-relaxed font-serif">
-                                        {currentChapter.explanation}
-                                    </p>
+                                    <div className="prose prose-lg prose-gray max-w-none font-serif text-gray-700 leading-relaxed">
+                                        <ReactMarkdown>{currentChapter.explanation}</ReactMarkdown>
+                                    </div>
 
                                     {/* Common Misconception - The "Correction" */}
                                     {currentChapter.common_misconception && (
