@@ -428,229 +428,290 @@ export default function PlanClient({ plan, chapters: serverChapters }: { plan: a
     }
 
     return (
-        <div className="max-w-3xl mx-auto px-4 pb-20">
-            {/* Progress Bar */}
-            <div className="fixed top-[73px] left-0 right-0 h-1 bg-gray-100 z-40">
-                <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${progress}%` }}
-                    className="h-full bg-amber-500"
-                />
-            </div>
+        <div className="min-h-screen bg-white flex flex-col md:flex-row font-sans text-gray-900">
+            {/* Sidebar for Desktop */}
+            <aside className="w-full md:w-80 border-r border-gray-100 bg-gray-50/50 flex-shrink-0 h-auto md:h-screen md:sticky md:top-0 overflow-y-auto hidden md:block">
+                <div className="p-6">
+                    <Link href="/" className="inline-flex items-center text-sm text-gray-500 hover:text-gray-900 mb-6 transition-colors">
+                        <ChevronLeft className="w-4 h-4 mr-1" />
+                        Back to Home
+                    </Link>
+                    <h1 className="font-bold text-xl mb-2 text-gray-900 leading-tight">{plan.topic}</h1>
+                    <div className="flex gap-2 text-xs text-gray-500 uppercase tracking-wider font-medium">
+                        <span>{plan.level}</span>
+                        <span>•</span>
+                        <span>{plan.urgency}</span>
+                    </div>
+                </div>
 
-            {/* Navigation Header */}
-            <div className="flex justify-between items-center mb-8 text-sm text-gray-500">
-                <span>Chapter {currentIndex + 1} of {chapters.length}</span>
-                <span className="font-medium text-gray-900">{Math.round(progress)}% Complete</span>
-            </div>
+                <div className="px-3 pb-6">
+                    <h3 className="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Chapters</h3>
+                    <nav className="space-y-0.5">
+                        {chapters.map((chapter: any, index: number) => (
+                            <button
+                                key={chapter.id}
+                                onClick={() => {
+                                    setCurrentIndex(index)
+                                    window.scrollTo({ top: 0, behavior: 'smooth' })
+                                }}
+                                className={`w-full text-left block px-3 py-2 rounded-lg text-sm transition-colors ${index === currentIndex
+                                    ? 'bg-amber-100/50 text-amber-900 font-medium'
+                                    : 'text-gray-600 hover:bg-gray-100/80 hover:text-gray-900'
+                                    }`}
+                            >
+                                <div className="flex items-start gap-3">
+                                    <span className="flex-shrink-0 mt-0.5">
+                                        {completed.has(chapter.id) ? (
+                                            <CheckCircle className="w-4 h-4 text-green-500" />
+                                        ) : (
+                                            <Circle className={`w-4 h-4 ${index === currentIndex ? 'text-amber-500' : 'text-gray-300'}`} />
+                                        )}
+                                    </span>
+                                    <span className="line-clamp-2">{chapter.title}</span>
+                                </div>
+                            </button>
+                        ))}
+                    </nav>
+                </div>
+            </aside>
 
-            <AnimatePresence mode='wait'>
-                <motion.div
-                    key={currentIndex}
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    transition={{ duration: 0.3 }}
-                    className="bg-white rounded-3xl shadow-xl shadow-gray-200/50 border border-gray-100 p-6 md:p-10 min-h-[60vh] flex flex-col justify-between"
-                >
-                    <div>
-                        <h2 className="text-3xl font-bold text-gray-900 tracking-tight mb-6">
-                            {currentChapter.title}
-                        </h2>
+            {/* Main Content */}
+            <main className="flex-1 w-full max-w-4xl mx-auto md:px-12 py-8 md:py-12">
+                {/* Mobile Header - Compact for mobile */}
+                <div className="md:hidden px-4 mb-8">
+                    <Link href="/" className="inline-flex items-center text-sm text-gray-500 mb-4">
+                        <ChevronLeft className="w-4 h-4 mr-1" />
+                        Home
+                    </Link>
+                    <h1 className="font-bold text-2xl text-gray-900">{plan.topic}</h1>
+                    {/* Mobile chapter selector could go here if needed, but horizontal list is simpler for now */}
+                </div>
 
-                        <div className="space-y-6">
-                            {(!currentChapter.explanation || currentChapter.explanation === "") ? (
-                                failedChapters.has(currentChapter.id) ? (
-                                    <div className="flex flex-col items-center justify-center p-12 text-center text-red-500 space-y-4">
-                                        <div className="bg-red-50 p-4 rounded-full">
-                                            <span className="text-2xl">⚠️</span>
-                                        </div>
-                                        <p className="font-medium">Failed to write this chapter.</p>
-                                        <button
-                                            onClick={() => retryChapter(currentChapter.id)}
-                                            className="bg-red-100 hover:bg-red-200 text-red-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                                        >
-                                            Retry Generation
-                                        </button>
+                <div className="max-w-3xl mx-auto px-4 pb-20">
+                    {/* Progress Bar */}
+                    <div className="fixed top-[0px] md:top-[0px] left-0 right-0 h-1 bg-gray-100 z-50 md:hidden">
+                        <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${progress}%` }}
+                            className="h-full bg-amber-500"
+                        />
+                    </div>
+
+                    {/* Navigation Header */}
+                    <div className="flex justify-between items-center mb-8 text-sm text-gray-500">
+                        <span>Chapter {currentIndex + 1} of {chapters.length}</span>
+                        <span className="font-medium text-gray-900">{Math.round(progress)}% Complete</span>
+                    </div>
+
+                    <AnimatePresence mode='wait'>
+                        <motion.div
+                            key={currentIndex}
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -20 }}
+                            transition={{ duration: 0.3 }}
+                            className="bg-white rounded-3xl shadow-xl shadow-gray-200/50 border border-gray-100 p-6 md:p-10 min-h-[60vh] flex flex-col justify-between"
+                        >
+                            <div>
+                                <h2 className="text-3xl font-bold text-gray-900 tracking-tight mb-6">
+                                    {currentChapter.title}
+                                </h2>
+
+                                <div className="space-y-6">
+                                    {(!currentChapter.explanation || currentChapter.explanation === "") ? (
+                                        failedChapters.has(currentChapter.id) ? (
+                                            <div className="flex flex-col items-center justify-center p-12 text-center text-red-500 space-y-4">
+                                                <div className="bg-red-50 p-4 rounded-full">
+                                                    <span className="text-2xl">⚠️</span>
+                                                </div>
+                                                <p className="font-medium">Failed to write this chapter.</p>
+                                                <button
+                                                    onClick={() => retryChapter(currentChapter.id)}
+                                                    className="bg-red-100 hover:bg-red-200 text-red-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                                                >
+                                                    Retry Generation
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center p-12 text-center text-gray-500 space-y-4">
+                                                <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+                                                <p>Writing this chapter...</p>
+                                                <p className="text-xs text-gray-400">Step 1: Drafting Concepts (English)...</p>
+                                            </div>
+                                        )
+                                    ) : (
+                                        <>
+                                            {/* Mental Model - The "Anchor" */}
+                                            {currentChapter.mental_model && (
+                                                <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-5 shadow-sm">
+                                                    <span className="flex items-center gap-2 text-xs font-bold text-indigo-700 uppercase tracking-wider mb-2">
+                                                        <span className="text-lg">💡</span> Mental Model
+                                                    </span>
+                                                    <p className="text-indigo-950 font-medium text-lg">
+                                                        {currentChapter.mental_model}
+                                                    </p>
+                                                </div>
+                                            )}
+
+                                            {/* Visual Content */}
+                                            {currentChapter.visual_type === 'mermaid' && (
+                                                <MermaidDiagram chart={currentChapter.visual_content} />
+                                            )}
+
+                                            {currentChapter.visual_type === 'react' && (
+                                                <SimpleTable dataStr={currentChapter.visual_content} />
+                                            )}
+
+                                            {currentChapter.visual_type === 'image' && (
+                                                <AIImage prompt={currentChapter.visual_content} />
+                                            )}
+
+                                            <div className="prose prose-lg prose-gray max-w-none font-serif text-gray-700 leading-relaxed">
+                                                <ReactMarkdown>{currentChapter.explanation}</ReactMarkdown>
+                                            </div>
+
+                                            {/* Common Misconception - The "Correction" */}
+                                            {currentChapter.common_misconception && (
+                                                <div className="bg-rose-50 border border-rose-100 rounded-xl p-5">
+                                                    <span className="flex items-center gap-2 text-xs font-bold text-rose-700 uppercase tracking-wider mb-2">
+                                                        <span className="text-lg">⚠️</span> Common Myth
+                                                    </span>
+                                                    <p className="text-rose-950 font-medium text-base">
+                                                        {currentChapter.common_misconception}
+                                                    </p>
+                                                </div>
+                                            )}
+
+                                            {/* Real World Example */}
+                                            {currentChapter.real_world_example && (
+                                                <div className="bg-blue-50 border border-blue-100 rounded-xl p-6">
+                                                    <span className="block text-xs font-bold text-blue-800 uppercase tracking-wider mb-2">Real World Example</span>
+                                                    <p className="text-blue-900 font-medium text-lg italic">
+                                                        "{currentChapter.real_world_example}"
+                                                    </p>
+                                                </div>
+                                            )}
+
+                                            {/* Quiz / Active Recall */}
+                                            {currentChapter.quiz_question && (
+                                                <div className="bg-teal-50 border border-teal-100 rounded-xl p-6 mt-6">
+                                                    <span className="block text-xs font-bold text-teal-700 uppercase tracking-wider mb-2">Active Recall</span>
+                                                    <p className="text-teal-900 font-medium text-lg mb-4">
+                                                        {currentChapter.quiz_question}
+                                                    </p>
+
+                                                    <details className="group">
+                                                        <summary className="cursor-pointer text-teal-600 font-medium text-sm hover:text-teal-800 transition-colors list-none flex items-center gap-2">
+                                                            <span className="bg-teal-100 px-2 py-1 rounded">Reveal Answer</span>
+                                                        </summary>
+                                                        <div className="mt-3 text-teal-800 leading-relaxed pl-1">
+                                                            {currentChapter.quiz_answer}
+                                                        </div>
+                                                    </details>
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+
+                                    <div className="bg-amber-50 border border-amber-100 rounded-xl p-6 mt-8">
+                                        <span className="block text-xs font-bold text-amber-800 uppercase tracking-wider mb-2">Key Takeaway</span>
+                                        <p className="text-amber-900 font-medium text-lg">
+                                            {currentChapter.key_takeaway}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="mt-12 flex items-center justify-between pt-8 border-t border-gray-100">
+                                <button
+                                    onClick={handlePrev}
+                                    disabled={currentIndex === 0}
+                                    className="text-gray-400 hover:text-gray-900 disabled:opacity-30 disabled:hover:text-gray-400 transition-colors flex items-center gap-2"
+                                >
+                                    <ChevronLeft className="w-5 h-5" />
+                                    Previous
+                                </button>
+
+                                {!completed.has(currentChapter.id) ? (
+                                    <button
+                                        onClick={markAsDone}
+                                        className="bg-gray-900 text-white px-8 py-4 rounded-xl font-medium hover:bg-gray-800 transition-all flex items-center gap-3 shadow-lg hover:shadow-xl hover:-translate-y-1"
+                                    >
+                                        <Circle className="w-5 h-5" />
+                                        Mark as Understood
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={handleNext}
+                                        disabled={currentIndex === chapters.length - 1}
+                                        className="bg-green-600 text-white px-8 py-4 rounded-xl font-medium hover:bg-green-700 transition-all flex items-center gap-3 shadow-lg"
+                                    >
+                                        <CheckCircle className="w-5 h-5" />
+                                        {currentIndex === chapters.length - 1 ? 'Finish' : 'Next Chapter'}
+                                    </button>
+                                )}
+                            </div>
+                        </motion.div>
+                    </AnimatePresence>
+
+                    {/* Completion State */}
+                    {isFinished && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 50 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="fixed bottom-0 left-0 right-0 p-8 bg-white border-t border-gray-100 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] flex flex-col items-center z-50"
+                        >
+                            <div className="text-center w-full max-w-2xl">
+                                <h3 className="text-xl font-bold text-green-600 mb-2">🎉 Course Completed!</h3>
+                                <p className="text-gray-600 mb-6">You've mastered the basics. Here are some recommended next steps:</p>
+
+                                {plan.next_steps && plan.next_steps.length > 0 ? (
+                                    <div className="flex flex-wrap justify-center gap-3 mb-6">
+                                        {plan.next_steps.map((step: string, i: number) => (
+                                            <button
+                                                key={i}
+                                                onClick={() => handleNextStep(step)}
+                                                disabled={generatingNext !== null}
+                                                className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-lg font-medium transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                            >
+                                                {generatingNext === step ? (
+                                                    <>
+                                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                                        Building...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        Learn {step} &rarr;
+                                                    </>
+                                                )}
+                                            </button>
+                                        ))}
                                     </div>
                                 ) : (
-                                    <div className="flex flex-col items-center justify-center p-12 text-center text-gray-500 space-y-4">
-                                        <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
-                                        <p>Writing this chapter...</p>
-                                        <p className="text-xs text-gray-400">Step 1: Drafting Concepts (English)...</p>
-                                    </div>
-                                )
-                            ) : (
-                                <>
-                                    {/* Mental Model - The "Anchor" */}
-                                    {currentChapter.mental_model && (
-                                        <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-5 shadow-sm">
-                                            <span className="flex items-center gap-2 text-xs font-bold text-indigo-700 uppercase tracking-wider mb-2">
-                                                <span className="text-lg">💡</span> Mental Model
-                                            </span>
-                                            <p className="text-indigo-950 font-medium text-lg">
-                                                {currentChapter.mental_model}
-                                            </p>
-                                        </div>
-                                    )}
+                                    <Link href="/" className="inline-block bg-gray-900 text-white px-6 py-3 rounded-xl font-medium hover:bg-gray-800 transition-colors">
+                                        Start a new topic
+                                    </Link>
+                                )}
 
-                                    {/* Visual Content */}
-                                    {currentChapter.visual_type === 'mermaid' && (
-                                        <MermaidDiagram chart={currentChapter.visual_content} />
-                                    )}
-
-                                    {currentChapter.visual_type === 'react' && (
-                                        <SimpleTable dataStr={currentChapter.visual_content} />
-                                    )}
-
-                                    {currentChapter.visual_type === 'image' && (
-                                        <AIImage prompt={currentChapter.visual_content} />
-                                    )}
-
-                                    <div className="prose prose-lg prose-gray max-w-none font-serif text-gray-700 leading-relaxed">
-                                        <ReactMarkdown>{currentChapter.explanation}</ReactMarkdown>
-                                    </div>
-
-                                    {/* Common Misconception - The "Correction" */}
-                                    {currentChapter.common_misconception && (
-                                        <div className="bg-rose-50 border border-rose-100 rounded-xl p-5">
-                                            <span className="flex items-center gap-2 text-xs font-bold text-rose-700 uppercase tracking-wider mb-2">
-                                                <span className="text-lg">⚠️</span> Common Myth
-                                            </span>
-                                            <p className="text-rose-950 font-medium text-base">
-                                                {currentChapter.common_misconception}
-                                            </p>
-                                        </div>
-                                    )}
-
-                                    {/* Real World Example */}
-                                    {currentChapter.real_world_example && (
-                                        <div className="bg-blue-50 border border-blue-100 rounded-xl p-6">
-                                            <span className="block text-xs font-bold text-blue-800 uppercase tracking-wider mb-2">Real World Example</span>
-                                            <p className="text-blue-900 font-medium text-lg italic">
-                                                "{currentChapter.real_world_example}"
-                                            </p>
-                                        </div>
-                                    )}
-
-                                    {/* Quiz / Active Recall */}
-                                    {currentChapter.quiz_question && (
-                                        <div className="bg-teal-50 border border-teal-100 rounded-xl p-6 mt-6">
-                                            <span className="block text-xs font-bold text-teal-700 uppercase tracking-wider mb-2">Active Recall</span>
-                                            <p className="text-teal-900 font-medium text-lg mb-4">
-                                                {currentChapter.quiz_question}
-                                            </p>
-
-                                            <details className="group">
-                                                <summary className="cursor-pointer text-teal-600 font-medium text-sm hover:text-teal-800 transition-colors list-none flex items-center gap-2">
-                                                    <span className="bg-teal-100 px-2 py-1 rounded">Reveal Answer</span>
-                                                </summary>
-                                                <div className="mt-3 text-teal-800 leading-relaxed pl-1">
-                                                    {currentChapter.quiz_answer}
-                                                </div>
-                                            </details>
-                                        </div>
-                                    )}
-                                </>
-                            )}
-
-                            <div className="bg-amber-50 border border-amber-100 rounded-xl p-6 mt-8">
-                                <span className="block text-xs font-bold text-amber-800 uppercase tracking-wider mb-2">Key Takeaway</span>
-                                <p className="text-amber-900 font-medium text-lg">
-                                    {currentChapter.key_takeaway}
-                                </p>
+                                {plan.next_steps && plan.next_steps.length > 0 && !generatingNext && (
+                                    <Link href="/" className="text-gray-400 text-xs hover:text-gray-600 underline">
+                                        Return to home
+                                    </Link>
+                                )}
                             </div>
+                        </motion.div>
+                    )}
+
+                    {/* Global Loader Overlay */}
+                    {generatingNext && (
+                        <div className="fixed inset-0 bg-white/80 backdrop-blur-sm z-[60] flex flex-col items-center justify-center">
+                            <Loader2 className="w-12 h-12 text-amber-500 animate-spin mb-4" />
+                            <h2 className="text-2xl font-bold text-gray-900">Designing your {generatingNext} course...</h2>
+                            <p className="text-gray-500 mt-2">Using your previous preferences ({plan.level}, {plan.urgency})</p>
                         </div>
-                    </div>
-
-                    <div className="mt-12 flex items-center justify-between pt-8 border-t border-gray-100">
-                        <button
-                            onClick={handlePrev}
-                            disabled={currentIndex === 0}
-                            className="text-gray-400 hover:text-gray-900 disabled:opacity-30 disabled:hover:text-gray-400 transition-colors flex items-center gap-2"
-                        >
-                            <ChevronLeft className="w-5 h-5" />
-                            Previous
-                        </button>
-
-                        {!completed.has(currentChapter.id) ? (
-                            <button
-                                onClick={markAsDone}
-                                className="bg-gray-900 text-white px-8 py-4 rounded-xl font-medium hover:bg-gray-800 transition-all flex items-center gap-3 shadow-lg hover:shadow-xl hover:-translate-y-1"
-                            >
-                                <Circle className="w-5 h-5" />
-                                Mark as Understood
-                            </button>
-                        ) : (
-                            <button
-                                onClick={handleNext}
-                                disabled={currentIndex === chapters.length - 1}
-                                className="bg-green-600 text-white px-8 py-4 rounded-xl font-medium hover:bg-green-700 transition-all flex items-center gap-3 shadow-lg"
-                            >
-                                <CheckCircle className="w-5 h-5" />
-                                {currentIndex === chapters.length - 1 ? 'Finish' : 'Next Chapter'}
-                            </button>
-                        )}
-                    </div>
-                </motion.div>
-            </AnimatePresence>
-
-            {/* Completion State */}
-            {isFinished && (
-                <motion.div
-                    initial={{ opacity: 0, y: 50 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="fixed bottom-0 left-0 right-0 p-8 bg-white border-t border-gray-100 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] flex flex-col items-center z-50"
-                >
-                    <div className="text-center w-full max-w-2xl">
-                        <h3 className="text-xl font-bold text-green-600 mb-2">🎉 Course Completed!</h3>
-                        <p className="text-gray-600 mb-6">You've mastered the basics. Here are some recommended next steps:</p>
-
-                        {plan.next_steps && plan.next_steps.length > 0 ? (
-                            <div className="flex flex-wrap justify-center gap-3 mb-6">
-                                {plan.next_steps.map((step: string, i: number) => (
-                                    <button
-                                        key={i}
-                                        onClick={() => handleNextStep(step)}
-                                        disabled={generatingNext !== null}
-                                        className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-lg font-medium transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                                    >
-                                        {generatingNext === step ? (
-                                            <>
-                                                <Loader2 className="w-4 h-4 animate-spin" />
-                                                Building...
-                                            </>
-                                        ) : (
-                                            <>
-                                                Learn {step} &rarr;
-                                            </>
-                                        )}
-                                    </button>
-                                ))}
-                            </div>
-                        ) : (
-                            <Link href="/" className="inline-block bg-gray-900 text-white px-6 py-3 rounded-xl font-medium hover:bg-gray-800 transition-colors">
-                                Start a new topic
-                            </Link>
-                        )}
-
-                        {plan.next_steps && plan.next_steps.length > 0 && !generatingNext && (
-                            <Link href="/" className="text-gray-400 text-xs hover:text-gray-600 underline">
-                                Return to home
-                            </Link>
-                        )}
-                    </div>
-                </motion.div>
-            )}
-
-            {/* Global Loader Overlay */}
-            {generatingNext && (
-                <div className="fixed inset-0 bg-white/80 backdrop-blur-sm z-[60] flex flex-col items-center justify-center">
-                    <Loader2 className="w-12 h-12 text-amber-500 animate-spin mb-4" />
-                    <h2 className="text-2xl font-bold text-gray-900">Designing your {generatingNext} course...</h2>
-                    <p className="text-gray-500 mt-2">Using your previous preferences ({plan.level}, {plan.urgency})</p>
+                    )}
                 </div>
-            )}
+            </main>
         </div>
     )
 }
