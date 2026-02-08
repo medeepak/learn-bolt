@@ -13,15 +13,24 @@ import ReactMarkdown from 'react-markdown'
 // ... existing mermaid init ...
 
 // Fix Mermaid Diagram component to handle empty charts gracefully
+// Initialize mermaid with specific settings to avoid default error rendering
+if (typeof window !== 'undefined') {
+    mermaid.initialize({
+        startOnLoad: false,
+        suppressErrorRendering: true,
+    });
+}
+
 const MermaidDiagram = ({ chart }: { chart: string }) => {
     const [svg, setSvg] = useState('')
+    const [error, setError] = useState(false)
 
     useEffect(() => {
-        if (!chart || chart === "Content loading...") return; // Skip if loading
+        if (!chart || chart === "Content loading...") return;
 
         const render = async () => {
             try {
-                // Clean the chart - remove markdown code blocks and fix common issues
+                setError(false)
                 let cleanChart = chart.trim()
 
                 // Remove markdown code blocks
@@ -29,53 +38,59 @@ const MermaidDiagram = ({ chart }: { chart: string }) => {
                     cleanChart = cleanChart.replace(/^```(mermaid)?\n?/, '').replace(/\n?```$/, '')
                 }
 
-                // Remove any leading/trailing quotes
                 cleanChart = cleanChart.replace(/^["']|["']$/g, '')
 
-                // Fix common AI mistakes: ensure proper diagram type declaration
                 if (!cleanChart.match(/^(graph|flowchart|sequenceDiagram|classDiagram|stateDiagram|erDiagram|journey|gantt|pie|mindmap|timeline)/i)) {
-                    // If no valid mermaid type, try wrapping as flowchart
                     cleanChart = `flowchart TD\n${cleanChart}`
                 }
 
-                // Escape special characters in labels that might cause issues
-                cleanChart = cleanChart.replace(/[\u201C\u201D]/g, '"') // Smart quotes to regular quotes
-                cleanChart = cleanChart.replace(/[\u2018\u2019]/g, "'") // Smart apostrophes
+                cleanChart = cleanChart.replace(/[\u201C\u201D]/g, '"')
+                cleanChart = cleanChart.replace(/[\u2018\u2019]/g, "'")
 
-                // Fix [] - Quote content inside if not already quoted
+                // Robust regex for []
                 cleanChart = cleanChart.replace(/\[([^\]]+)\]/g, (match, content) => {
                     const trimmed = content.trim();
                     if (trimmed.startsWith('"') && trimmed.endsWith('"')) return match;
                     return `["${trimmed.replace(/"/g, "'")}"]`;
                 })
 
-                // Fix {} - Quote content inside
+                // Robust regex for {} - Handle partial/broken JSON-like structures better?
+                // If it looks like `{"...` without end quote, we can't easily fix.
+                // But generally quote content.
                 cleanChart = cleanChart.replace(/\{([^}]+)\}/g, (match, content) => {
                     const trimmed = content.trim();
                     if (trimmed.startsWith('"') && trimmed.endsWith('"')) return match;
                     return `{"${trimmed.replace(/"/g, "'")}"}`;
                 })
 
-                // Fix () - Quote content inside, handling nested () like ((Text))
+                // Robust regex for ()
                 cleanChart = cleanChart.replace(/\(([^)]+)\)/g, (match, content) => {
                     const trimmed = content.trim();
                     if (trimmed.startsWith('"') && trimmed.endsWith('"')) return match;
-                    // Dont quote if it looks like a special shape start/end? No, quote everything.
                     return `("${trimmed.replace(/"/g, "'")}")`;
                 })
 
-                const { svg } = await mermaid.render(`mermaid-${Math.random().toString(36).substr(2, 9)}`, cleanChart);
+                // Suppress parse errors explicitly
+                mermaid.parseError = (err) => {
+                    console.error('Mermaid Parse Error (Suppressed):', err);
+                    // Do not render anything to DOM
+                };
+
+                const id = `mermaid-${Math.random().toString(36).substr(2, 9)}`
+                const { svg } = await mermaid.render(id, cleanChart);
                 setSvg(svg)
             } catch (e) {
-                console.error('Mermaid render error', e, 'Chart:', chart)
-                setSvg('<div class="text-red-500 text-sm p-4 text-center">Unable to render diagram</div>')
+                console.error('Mermaid render error', e)
+                setError(true)
+                setSvg('') // Clear SVG to ensure nothing shows
             }
         }
         render()
     }, [chart])
 
-    if (!svg) {
-        return <div className="my-6 p-4 bg-gray-50 rounded-xl border border-gray-100 flex justify-center text-gray-400">Loading diagram...</div>
+    if (error || !svg) {
+        return null; // Hide completely on error or loading (user preference "at least hide it")
+        // Alternatively retain "Loading..." if purely loading, but "error" should hide.
     }
 
     return <div className="my-6 p-4 bg-gray-50 rounded-xl border border-gray-100 flex justify-center overflow-x-auto" dangerouslySetInnerHTML={{ __html: svg }} />
