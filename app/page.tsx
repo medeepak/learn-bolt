@@ -15,6 +15,7 @@ function HomeContent() {
   const [topic, setTopic] = useState('')
   const [urgency, setUrgency] = useState('2h')
   const [level, setLevel] = useState('beginner')
+  const [mode, setMode] = useState('standard')
   const [language, setLanguage] = useState('english')
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState('')
@@ -51,7 +52,7 @@ function HomeContent() {
     if (!topic.trim()) return
 
     setLoading(true)
-    setStatus('Designing your curriculum...')
+    setStatus(mode === 'story' ? 'Writing your story...' : 'Designing your curriculum...')
 
     try {
       const formData = new FormData()
@@ -59,6 +60,7 @@ function HomeContent() {
       formData.append('urgency', urgency)
       formData.append('level', level)
       formData.append('language', language)
+      formData.append('mode', mode)
       if (file) {
         console.log(`[Client] Adding file to FormData: ${file.name}, size: ${file.size}, type: ${file.type}`)
         formData.append('document', file)
@@ -159,8 +161,19 @@ function HomeContent() {
                 className="bg-transparent focus:outline-none cursor-pointer appearance-none pr-2 hover:text-gray-900"
               >
                 <option value="2h">I have 2 hours</option>
-                <option value="today">I have today</option>
                 <option value="week">I have this week</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-gray-200 text-gray-600">
+              <span className="text-gray-400 text-sm">🎨</span>
+              <select
+                value={mode}
+                onChange={(e) => setMode(e.target.value)}
+                className="bg-transparent focus:outline-none cursor-pointer appearance-none pr-2 hover:text-gray-900"
+              >
+                <option value="standard">Standard Lesson</option>
+                <option value="story">Visual Story</option>
               </select>
             </div>
 

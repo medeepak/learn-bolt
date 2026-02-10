@@ -13,6 +13,7 @@ export async function generateLearningPlan(formData: FormData) {
     const urgency = formData.get('urgency') as string
     const level = formData.get('level') as string
     const language = formData.get('language') as string
+    const mode = (formData.get('mode') as string) || 'standard'
     const document = formData.get('document')
 
     console.log('[Server] document from FormData:', document ? `${typeof document}, name: ${(document as any).name}` : 'NULL')
@@ -43,7 +44,7 @@ export async function generateLearningPlan(formData: FormData) {
     // NOTE: We now allow guests (user is optional)
 
     // 1. Create the Plan Structure in DB immediately (Fast)
-    console.log("Step 1: Creating initial plan for:", topic, pdfBase64 ? `(with PDF, ${pdfBase64.length} chars base64)` : '')
+    console.log("Step 1: Creating initial plan for:", topic, `Mode: ${mode}`, pdfBase64 ? `(with PDF, ${pdfBase64.length} chars base64)` : '')
     const { data: plan, error: planError } = await supabase
         .from('learning_plans')
         .insert({
@@ -52,6 +53,7 @@ export async function generateLearningPlan(formData: FormData) {
             urgency,
             level,
             language,
+            mode,
             status: 'generating', // Initial status
             next_steps: [],
             document_context: pdfBase64 || null  // Store PDF as base64 in DB
@@ -74,22 +76,52 @@ export async function generatePlanContent(planId: string) {
     const { data: plan } = await supabase.from('learning_plans').select('*').eq('id', planId).single()
     if (!plan) throw new Error("Plan not found")
 
-    const { topic, urgency, level, language, document_context } = plan
+    const { topic, urgency, level, language, document_context, mode } = plan
     const pdfBase64 = document_context as string | null
 
-    console.log("Step 2: Generating content for Plan ID:", planId, pdfBase64 ? `(with PDF, ${pdfBase64.length} chars base64)` : '(no document)')
+    console.log("Step 2: Generating content for Plan ID:", planId, `Mode: ${mode}`, pdfBase64 ? `(with PDF, ${pdfBase64.length} chars base64)` : '(no document)')
 
     // Build prompt based on whether document is provided
     let systemPrompt = "You are a strict, no-nonsense teacher. Output valid JSON."
     let userPrompt: string
 
-    if (pdfBase64) {
+    if (mode === 'story') {
+        systemPrompt = "You are a master storyteller. Output valid JSON."
+        userPrompt = `
+    Create a captivating visual story about: "${topic}"
+    
+    Target Audience: ${level} level
+    Language: ${language}
+    
+    Requirements:
+    1. Create a continuous narrative split into 10-12 mini-chapters (scenes).
+    2. If the topic is a specific story (e.g., "The Crow and the Dragon"), retell it vividly.
+    3. If the topic is educational (e.g., "Photosynthesis"), invent a character and a journey to explain it through story (e.g., "The Journey of a Photon").
+    4. Each chapter MUST have a "scene_description" for an AI image generator.
+    
+    Output JSON format:
+    {
+      "intent": "story",
+      "curriculum_strategy": "Briefly describe the narrative arc.",
+      "chapters": [
+        {
+          "title": "Scene 1 Title",
+          "mental_model": "Scene Setting (Time/Place)", 
+          "key_takeaway": "Plot Point / Core Concept learned",
+          "visual_content": "Vivid image prompt for this scene (no text in image, just description)",
+          "explanation": "The actual story text for this chapter (2-3 paragraphs)." 
+        }
+      ],
+      "next_steps": ["Related stories", "Advanced topics"]
+    }
+         `
+    } else if (pdfBase64) {
         // DOCUMENT-BASED: The PDF is the PRIMARY source
         userPrompt = `
     Analyze the attached PDF document carefully.
-
+    
     The user entered: "${topic}"
-
+    
     ═══════════════════════════════════════════════════════════════
     INTENT DETECTION (choose EXACTLY ONE - this determines everything)
     ═══════════════════════════════════════════════════════════════
@@ -345,13 +377,13 @@ export async function generatePlanContent(planId: string) {
             plan_id: plan.id,
             title: normalized.title,
             mental_model: normalized.mental_model,
-            explanation: "", // To be filled later
+            explanation: (mode === 'story' && ch.explanation) ? ch.explanation : "", // Story mode gets content immediately
             common_misconception: "",
             real_world_example: "",
             quiz_question: "",
             quiz_answer: "",
-            visual_type: "text", // Default
-            visual_content: "Content loading...",
+            visual_type: (mode === 'story' && ch.visual_content) ? 'image' : "text",
+            visual_content: (mode === 'story' && ch.visual_content) ? ch.visual_content : "Content loading...",
             key_takeaway: normalized.key_takeaway,
             order: index + 1,
             is_completed: false

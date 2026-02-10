@@ -171,10 +171,17 @@ const SimpleTable = ({ dataStr }: { dataStr: string }) => {
     }
 }
 
-const AIImage = ({ prompt }: { prompt: string }) => {
+const AIImage = ({ prompt, autoGenerate = false }: { prompt: string, autoGenerate?: boolean }) => {
     const [imageUrl, setImageUrl] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
     const [touched, setTouched] = useState(false)
+
+    // Auto-generate if enabled
+    useEffect(() => {
+        if (autoGenerate && prompt && !imageUrl && !loading && !touched) {
+            load()
+        }
+    }, [autoGenerate, prompt])
 
     const load = async () => {
         if (loading || imageUrl) return
@@ -556,8 +563,8 @@ export default function PlanClient({ plan, chapters: serverChapters }: { plan: a
                                         )
                                     ) : (
                                         <>
-                                            {/* Mental Model - The "Anchor" */}
-                                            {currentChapter.mental_model && (
+                                            {/* Mental Model - Only show in standard mode */}
+                                            {plan.mode !== 'story' && currentChapter.mental_model && (
                                                 <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-5 shadow-sm">
                                                     <span className="flex items-center gap-2 text-xs font-bold text-indigo-700 uppercase tracking-wider mb-2">
                                                         <span className="text-lg">💡</span> Mental Model
@@ -578,15 +585,18 @@ export default function PlanClient({ plan, chapters: serverChapters }: { plan: a
                                             )}
 
                                             {currentChapter.visual_type === 'image' && (
-                                                <AIImage prompt={currentChapter.visual_content} />
+                                                <AIImage
+                                                    prompt={currentChapter.visual_content}
+                                                    autoGenerate={plan.mode === 'story'}
+                                                />
                                             )}
 
                                             <div className="prose prose-lg prose-gray max-w-none font-serif text-gray-700 leading-relaxed">
                                                 <ReactMarkdown>{currentChapter.explanation}</ReactMarkdown>
                                             </div>
 
-                                            {/* Common Misconception - The "Correction" */}
-                                            {currentChapter.common_misconception && (
+                                            {/* Common Misconception - Hide in Story Mode */}
+                                            {plan.mode !== 'story' && currentChapter.common_misconception && (
                                                 <div className="bg-rose-50 border border-rose-100 rounded-xl p-5">
                                                     <span className="flex items-center gap-2 text-xs font-bold text-rose-700 uppercase tracking-wider mb-2">
                                                         <span className="text-lg">⚠️</span> Common Myth
@@ -597,8 +607,8 @@ export default function PlanClient({ plan, chapters: serverChapters }: { plan: a
                                                 </div>
                                             )}
 
-                                            {/* Real World Example */}
-                                            {currentChapter.real_world_example && (
+                                            {/* Real World Example - Hide in Story Mode */}
+                                            {plan.mode !== 'story' && currentChapter.real_world_example && (
                                                 <div className="bg-blue-50 border border-blue-100 rounded-xl p-6">
                                                     <span className="block text-xs font-bold text-blue-800 uppercase tracking-wider mb-2">Real World Example</span>
                                                     <p className="text-blue-900 font-medium text-lg italic">
@@ -607,8 +617,8 @@ export default function PlanClient({ plan, chapters: serverChapters }: { plan: a
                                                 </div>
                                             )}
 
-                                            {/* Quiz / Active Recall */}
-                                            {currentChapter.quiz_question && (
+                                            {/* Quiz / Active Recall - Hide in Story Mode */}
+                                            {plan.mode !== 'story' && currentChapter.quiz_question && (
                                                 <div className="bg-teal-50 border border-teal-100 rounded-xl p-6 mt-6">
                                                     <span className="block text-xs font-bold text-teal-700 uppercase tracking-wider mb-2">Active Recall</span>
                                                     <p className="text-teal-900 font-medium text-lg mb-4">
@@ -628,12 +638,15 @@ export default function PlanClient({ plan, chapters: serverChapters }: { plan: a
                                         </>
                                     )}
 
-                                    <div className="bg-amber-50 border border-amber-100 rounded-xl p-6 mt-8">
-                                        <span className="block text-xs font-bold text-amber-800 uppercase tracking-wider mb-2">Key Takeaway</span>
-                                        <p className="text-amber-900 font-medium text-lg">
-                                            {currentChapter.key_takeaway}
-                                        </p>
-                                    </div>
+                                    {/* Key Takeaway - Hide in Story Mode unless we want it as 'Moral' */}
+                                    {plan.mode !== 'story' && (
+                                        <div className="bg-amber-50 border border-amber-100 rounded-xl p-6 mt-8">
+                                            <span className="block text-xs font-bold text-amber-800 uppercase tracking-wider mb-2">Key Takeaway</span>
+                                            <p className="text-amber-900 font-medium text-lg">
+                                                {currentChapter.key_takeaway}
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -653,7 +666,7 @@ export default function PlanClient({ plan, chapters: serverChapters }: { plan: a
                                         className="bg-gray-900 text-white px-8 py-4 rounded-xl font-medium hover:bg-gray-800 transition-all flex items-center gap-3 shadow-lg hover:shadow-xl hover:-translate-y-1"
                                     >
                                         <Circle className="w-5 h-5" />
-                                        Mark as Understood
+                                        {plan.mode === 'story' ? 'Next Scene' : 'Mark as Understood'}
                                     </button>
                                 ) : (
                                     <button
@@ -662,7 +675,7 @@ export default function PlanClient({ plan, chapters: serverChapters }: { plan: a
                                         className="bg-green-600 text-white px-8 py-4 rounded-xl font-medium hover:bg-green-700 transition-all flex items-center gap-3 shadow-lg"
                                     >
                                         <CheckCircle className="w-5 h-5" />
-                                        {currentIndex === chapters.length - 1 ? 'Finish' : 'Next Chapter'}
+                                        {currentIndex === chapters.length - 1 ? 'Finish Story' : 'Next Chapter'}
                                     </button>
                                 )}
                             </div>

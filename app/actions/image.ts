@@ -8,10 +8,9 @@ export async function generateImage(prompt: string) {
     try {
         console.log("Generating image with Gemini (gemini-2.5-flash) for:", prompt.substring(0, 50))
 
-        // Use gemini-2.5-flash as requested. 
-        // Note: Use 'gemini-2.5-flash-image' if 'gemini-2.5-flash' fails to generate images.
+        // Use gemini-2.5-flash-image as the user requested for image generation
         const model = gemini.getGenerativeModel({
-            model: "gemini-2.5-flash",
+            model: "gemini-2.5-flash-image",
         })
 
         const result = await model.generateContent({
