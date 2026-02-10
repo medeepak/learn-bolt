@@ -1,238 +1,17 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { CheckCircle, Circle, ChevronRight, ChevronLeft, Loader2, PlayCircle } from 'lucide-react'
+import { CheckCircle, Circle, ChevronRight, ChevronLeft, Loader2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import mermaid from 'mermaid'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { generateImage } from '../../actions/image'
 import { generateLearningPlan, generatePlanContent, generateEnglishContent } from '../../actions/generate'
 import ReactMarkdown from 'react-markdown'
+import AIImage from '@/components/plan/AIImage'
+import MermaidDiagram from '@/components/plan/MermaidDiagram'
+import MobileChapterCard from '@/components/plan/MobileChapterCard'
+import SimpleTable from '@/components/plan/SimpleTable'
 
-// ... existing mermaid init ...
-
-// Fix Mermaid Diagram component to handle empty charts gracefully
-// Initialize mermaid with specific settings to avoid default error rendering
-if (typeof window !== 'undefined') {
-    mermaid.initialize({
-        startOnLoad: false,
-        suppressErrorRendering: true,
-    });
-}
-
-const MermaidDiagram = ({ chart }: { chart: string }) => {
-    const [svg, setSvg] = useState('')
-    const [error, setError] = useState(false)
-
-    useEffect(() => {
-        if (!chart || chart === "Content loading...") return;
-
-        const render = async () => {
-            try {
-                setError(false)
-                let cleanChart = chart.trim()
-
-                // Remove markdown code blocks
-                if (cleanChart.startsWith('```')) {
-                    cleanChart = cleanChart.replace(/^```(mermaid)?\n?/, '').replace(/\n?```$/, '')
-                }
-
-                cleanChart = cleanChart.replace(/^["']|["']$/g, '')
-
-                if (!cleanChart.match(/^(graph|flowchart|sequenceDiagram|classDiagram|stateDiagram|erDiagram|journey|gantt|pie|mindmap|timeline)/i)) {
-                    cleanChart = `flowchart TD\n${cleanChart}`
-                }
-
-                cleanChart = cleanChart.replace(/[\u201C\u201D]/g, '"')
-                cleanChart = cleanChart.replace(/[\u2018\u2019]/g, "'")
-
-                // Robust regex for []
-                cleanChart = cleanChart.replace(/\[([^\]]+)\]/g, (match, content) => {
-                    const trimmed = content.trim();
-                    if (trimmed.startsWith('"') && trimmed.endsWith('"')) return match;
-                    return `["${trimmed.replace(/"/g, "'")}"]`;
-                })
-
-                // Robust regex for {} - Handle partial/broken JSON-like structures better?
-                // If it looks like `{"...` without end quote, we can't easily fix.
-                // But generally quote content.
-                cleanChart = cleanChart.replace(/\{([^}]+)\}/g, (match, content) => {
-                    const trimmed = content.trim();
-                    if (trimmed.startsWith('"') && trimmed.endsWith('"')) return match;
-                    return `{"${trimmed.replace(/"/g, "'")}"}`;
-                })
-
-                // Robust regex for ()
-                cleanChart = cleanChart.replace(/\(([^)]+)\)/g, (match, content) => {
-                    const trimmed = content.trim();
-                    if (trimmed.startsWith('"') && trimmed.endsWith('"')) return match;
-                    return `("${trimmed.replace(/"/g, "'")}")`;
-                })
-
-                // Suppress parse errors explicitly
-                mermaid.parseError = (err) => {
-                    console.error('Mermaid Parse Error (Suppressed):', err);
-                    // Do not render anything to DOM
-                };
-
-                const id = `mermaid-${Math.random().toString(36).substr(2, 9)}`
-                const { svg } = await mermaid.render(id, cleanChart);
-                setSvg(svg)
-            } catch (e) {
-                console.error('Mermaid render error', e)
-                setError(true)
-                setSvg('') // Clear SVG to ensure nothing shows
-            }
-        }
-        render()
-    }, [chart])
-
-    if (error || !svg) {
-        return null; // Hide completely on error or loading (user preference "at least hide it")
-        // Alternatively retain "Loading..." if purely loading, but "error" should hide.
-    }
-
-    return <div className="my-6 p-4 bg-gray-50 rounded-xl border border-gray-100 flex justify-center overflow-x-auto" dangerouslySetInnerHTML={{ __html: svg }} />
-}
-
-const SimpleTable = ({ dataStr }: { dataStr: string }) => {
-    try {
-        let cleanStr = typeof dataStr === 'string' ? dataStr.trim() : JSON.stringify(dataStr)
-        // Remove markdown code blocks if present
-        if (cleanStr.startsWith('```')) {
-            cleanStr = cleanStr.replace(/^```(json)?\n?/, '').replace(/\n?```$/, '')
-        }
-
-        const data = JSON.parse(cleanStr)
-        if (!Array.isArray(data) || data.length === 0) {
-            // Fallback: If it's just a string description, show it as text
-            if (typeof dataStr === 'string' && dataStr.length > 0 && !dataStr.trim().startsWith('{') && !dataStr.trim().startsWith('[')) {
-                return (
-                    <div className="my-6 p-4 bg-gray-50 rounded-xl border border-gray-100 text-gray-600 italic text-center">
-                        {dataStr}
-                    </div>
-                )
-            }
-            return null
-        }
-
-        const headers = Object.keys(data[0])
-
-        return (
-            <div className="my-6 overflow-hidden rounded-xl border border-gray-200 shadow-sm font-sans">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left">
-                        <thead className="bg-gray-50 text-gray-700 font-semibold uppercase text-xs tracking-wider">
-                            <tr>
-                                {headers.map((h) => (
-                                    <th key={h} className="px-6 py-3 border-b border-gray-200 whitespace-nowrap">{h}</th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100 bg-white">
-                            {data.map((row, i) => (
-                                <tr key={i} className="hover:bg-gray-50/50 transition-colors">
-                                    {headers.map((h) => {
-                                        const value = row[h]
-                                        // Handle nested objects by converting to string
-                                        const displayValue = typeof value === 'object' && value !== null
-                                            ? JSON.stringify(value)
-                                            : String(value ?? '')
-                                        return (
-                                            <td key={h} className="px-6 py-4 text-gray-600 font-medium whitespace-nowrap">
-                                                {displayValue}
-                                            </td>
-                                        )
-                                    })}
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        )
-    } catch (e) {
-        // Fallback for parsing errors: Show the text if it looks like a description
-        if (typeof dataStr === 'string' && !dataStr.trim().startsWith('{') && !dataStr.trim().startsWith('[')) {
-            return (
-                <div className="my-6 p-4 bg-blue-50 text-blue-800 rounded-xl border border-blue-100 flex items-center gap-3">
-                    <div className="p-2 bg-blue-100 rounded-full">ℹ️</div>
-                    <p className="text-sm font-medium">{dataStr}</p>
-                </div>
-            )
-        }
-
-        return (
-            <div className="p-4 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100">
-                Could not render table data.
-            </div>
-        )
-    }
-}
-
-const AIImage = ({ prompt, autoGenerate = false }: { prompt: string, autoGenerate?: boolean }) => {
-    const [imageUrl, setImageUrl] = useState<string | null>(null)
-    const [loading, setLoading] = useState(false)
-    const [touched, setTouched] = useState(false)
-
-    // Auto-generate if enabled
-    useEffect(() => {
-        if (autoGenerate && prompt && !imageUrl && !loading && !touched) {
-            load()
-        }
-    }, [autoGenerate, prompt])
-
-    const load = async () => {
-        if (loading || imageUrl) return
-        setLoading(true)
-        setTouched(true)
-
-        try {
-            const res = await generateImage(prompt)
-            if (res && res.success && res.url) {
-                setImageUrl(res.url)
-            } else {
-                console.error("Client Image Load Error:", res?.error)
-                alert(`Image Generation Failed: ${res?.error || "Unknown error"}`)
-                // You could also set an error state here to show in UI
-            }
-        } catch (e) {
-            console.error("Client Image Call Failed", e)
-        }
-
-        setLoading(false)
-    }
-
-    return (
-        <div className="my-6">
-            {!touched ? (
-                <button
-                    onClick={load}
-                    className="w-full h-64 bg-gray-100 rounded-xl flex flex-col items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors border-2 border-dashed border-gray-300 gap-2"
-                >
-                    <PlayCircle className="w-8 h-8 opacity-50" />
-                    <span className="font-medium text-sm">Generate AI Illustration</span>
-                </button>
-            ) : loading ? (
-                <div className="w-full h-64 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400">
-                    <Loader2 className="w-6 h-6 animate-spin mr-2" />
-                    Generating visuals...
-                </div>
-            ) : imageUrl ? (
-                <img src={imageUrl} alt="AI illustration" className="rounded-xl w-full h-auto shadow-sm border border-gray-100" />
-            ) : (
-                <div className="w-full h-16 bg-red-50 text-red-500 text-sm rounded-lg flex items-center justify-center">
-                    Failed to load image.
-                </div>
-            )}
-        </div>
-    )
-}
-
-// ... imports
-
-// Helper for mobile interaction observer
 const useScrollSpy = (
     refs: React.MutableRefObject<(HTMLElement | null)[]>,
     callback: (index: number) => void
@@ -251,7 +30,7 @@ const useScrollSpy = (
             },
             {
                 root: null,
-                rootMargin: '-50% 0px -50% 0px', // Trigger when element is center of screen
+                rootMargin: '-50% 0px -50% 0px',
                 threshold: 0
             }
         )
@@ -261,121 +40,7 @@ const useScrollSpy = (
         })
 
         return () => observer.disconnect()
-    }, [refs, callback]) // Re-run if refs change (e.g. chapters loaded)
-}
-
-const MobileChapterCard = ({
-    chapter,
-    plan,
-    index,
-    total,
-    isActive,
-    failed,
-    retry,
-    isLast
-}: {
-    chapter: any,
-    plan: any,
-    index: number,
-    total: number,
-    isActive: boolean,
-    failed: boolean,
-    retry: () => void,
-    isLast: boolean
-}) => {
-    return (
-        <section
-            className="h-[100dvh] w-full snap-start flex flex-col items-center justify-center p-4 bg-gray-100"
-            data-index={index}
-        // Ref will be attached in parent map
-        >
-            <div className="w-full max-w-md bg-white rounded-3xl shadow-xl overflow-hidden flex flex-col max-h-[90vh] border border-gray-200 relative">
-
-                {/* Image Section - Fixed Height */}
-                <div className="h-64 sm:h-72 bg-gray-50 flex-shrink-0 relative border-b border-gray-100">
-                    {/* Overlay Gradient for Text Readability if needed, but we have text below */}
-                    {chapter.visual_type === 'image' && (
-                        <div className="w-full h-full">
-                            {/* We re-use AIImage but maybe need a custom version for purely display? 
-                                AIImage handles generation logic which is good.
-                            */}
-                            <AIImage
-                                prompt={chapter.visual_content}
-                                autoGenerate={plan.mode === 'story'}
-                            />
-                        </div>
-                    )}
-                    {chapter.visual_type !== 'image' && chapter.visual_content && (
-                        <div className="p-4 w-full h-full overflow-auto flex items-center justify-center">
-                            {chapter.visual_type === 'mermaid' ? (
-                                <MermaidDiagram chart={chapter.visual_content} />
-                            ) : (
-                                <div className="text-sm text-gray-500 italic">{chapter.visual_content}</div>
-                            )}
-                        </div>
-                    )}
-                    {(!chapter.visual_content) && (
-                        <div className="w-full h-full flex items-center justify-center text-gray-300">
-                            <Circle className="w-12 h-12 opacity-20" />
-                        </div>
-                    )}
-                </div>
-
-                {/* Content Section - Scrollable */}
-                <div className="flex-1 overflow-y-auto p-6 relative">
-                    <div className="mb-2 flex items-center justify-between">
-                        <span className="text-xs font-bold tracking-wider text-gray-400 uppercase">
-                            Chapter {index + 1}/{total}
-                        </span>
-                        {plan.mode === 'story' && (
-                            <span className="text-xs font-bold text-amber-500 bg-amber-50 px-2 py-1 rounded-full">
-                                Story Mode
-                            </span>
-                        )}
-                    </div>
-
-                    <h2 className="text-2xl font-bold text-gray-900 leading-tight mb-4 font-serif">
-                        {chapter.title}
-                    </h2>
-
-                    {(!chapter.explanation) ? (
-                        failed ? (
-                            <div className="text-center p-8 text-red-500">
-                                <p>Failed to load.</p>
-                                <button onClick={retry} className="mt-2 text-sm underline">Retry</button>
-                            </div>
-                        ) : (
-                            <div className="space-y-3 animate-pulse">
-                                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                                <div className="h-4 bg-gray-200 rounded w-full"></div>
-                                <div className="h-4 bg-gray-200 rounded w-5/6"></div>
-                            </div>
-                        )
-                    ) : (
-                        <div className="prose prose-sm prose-gray max-w-none text-gray-600 leading-relaxed pb-8">
-                            <ReactMarkdown>{chapter.explanation}</ReactMarkdown>
-                        </div>
-                    )}
-
-                    {/* Bottom fade for scroll hint if needed
-                    <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
-                    */}
-                </div>
-
-                {/* Footer / Navigation Hint */}
-                <div className="p-4 border-t border-gray-50 bg-white flex justify-between items-center text-xs text-gray-400">
-                    <div className="flex flex-col">
-                        <span>Swipe up for next</span>
-                    </div>
-                    {isLast && (
-                        <div className="text-green-600 font-bold flex items-center gap-1">
-                            <CheckCircle className="w-4 h-4" /> Finished
-                        </div>
-                    )}
-                </div>
-            </div>
-        </section>
-    )
+    }, [refs, callback])
 }
 
 export default function PlanClient({ plan, chapters: serverChapters }: { plan: any, chapters: any[] }) {
@@ -397,6 +62,7 @@ export default function PlanClient({ plan, chapters: serverChapters }: { plan: a
 
     // Mobile Refs
     const chapterRefs = useRef<(HTMLElement | null)[]>([])
+
 
     // Sync Logic (same as before)
     useEffect(() => {
@@ -564,7 +230,6 @@ export default function PlanClient({ plan, chapters: serverChapters }: { plan: a
                             plan={plan}
                             index={i}
                             total={chapters.length}
-                            isActive={i === currentIndex}
                             failed={failedChapters.has(chapter.id)}
                             retry={() => retryChapter(chapter.id)}
                             isLast={i === chapters.length - 1}
