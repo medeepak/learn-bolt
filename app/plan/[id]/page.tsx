@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 
 import PlanClient from './client'
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
 
 export default async function PlanPage({ params }: { params: Promise<{ id: string }> }) {

@@ -6,7 +6,8 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 
 // Allow up to 5 minutes for generation (if platform permits, otherwise cap at 60s for Hobby)
-export const maxDuration = 300;
+// Note: maxDuration cannot be exported here in "use server" files. It must be in the Page/Route.
+
 
 export async function generateLearningPlan(formData: FormData) {
     console.log('[Server] generateLearningPlan called')
