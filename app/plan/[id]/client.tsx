@@ -86,7 +86,14 @@ export default function PlanClient({ plan, chapters: serverChapters }: { plan: a
                 try {
                     setInitializing(true)
                     const res = await generatePlanContent(plan.id) // Updated to include document context
-                    if (res.success) router.refresh()
+                    if (res.success) {
+                        // router.refresh() 
+                        // We rely on local state updates if possible, or we trigger a reload. 
+                        // Actually for INIT we might want a refresh to get the chapters if we didn't have them?
+                        // generatePlanContent creates chapters. We need to fetch them.
+                        // So router.refresh() IS needed here if we don't fetch them manually.
+                        router.refresh()
+                    }
                 } catch (e: any) {
                     console.error("Init Failed", e)
                 }
@@ -114,7 +121,7 @@ export default function PlanClient({ plan, chapters: serverChapters }: { plan: a
                     const res = await generateEnglishContent(pendingChapter.id)
                     if (res.success && res.data) {
                         setChapters(prev => prev.map(c => c.id === pendingChapter.id ? { ...c, ...res.data } : c))
-                        router.refresh()
+                        // router.refresh() // Removed to prevent navigation resets/scroll jumps
                     } else {
                         throw new Error("API failure")
                     }
@@ -329,7 +336,7 @@ export default function PlanClient({ plan, chapters: serverChapters }: { plan: a
                             <span className="font-medium text-gray-900">{Math.round(((currentIndex) / (chapters.length)) * 100)}% Complete</span>
                         </div>
 
-                        <AnimatePresence mode='wait'>
+                        <AnimatePresence mode="popLayout">
                             <motion.div
                                 key={currentIndex}
                                 initial={{ opacity: 0, x: 20 }}
@@ -345,9 +352,8 @@ export default function PlanClient({ plan, chapters: serverChapters }: { plan: a
                                     </h2>
 
                                     {/* ... Content logic (Mental Model, Image, Text, etc) ... */}
-                                    {/* I will invoke the code from previous step effectively by copying the block */}
                                     <div className="space-y-6">
-                                        {(!currentChapter.explanation) ? (
+                                        {(!currentChapter.explanation || currentChapter.explanation.trim() === '') ? (
                                             /* Loading/Error State */
                                             failedChapters.has(currentChapter.id) ? (
                                                 <div className="text-red-500 text-center p-8">Failed. <button onClick={() => retryChapter(currentChapter.id)} className="underline">Retry</button></div>
@@ -367,9 +373,25 @@ export default function PlanClient({ plan, chapters: serverChapters }: { plan: a
 
                                                 {currentChapter.visual_type === 'mermaid' && <MermaidDiagram chart={currentChapter.visual_content} />}
                                                 {currentChapter.visual_type === 'react' && <SimpleTable dataStr={currentChapter.visual_content} />}
-                                                {currentChapter.visual_type === 'image' && (
-                                                    <AIImage prompt={currentChapter.visual_content} autoGenerate={plan.mode === 'story'} />
-                                                )}
+                                                {currentChapter.visual_type === 'image' && (() => {
+                                                    let prompt = currentChapter.visual_content
+                                                    let imageUrl = null
+                                                    try {
+                                                        if (currentChapter.visual_content && currentChapter.visual_content.trim().startsWith('{')) {
+                                                            const parsed = JSON.parse(currentChapter.visual_content)
+                                                            if (parsed.prompt) prompt = parsed.prompt
+                                                            if (parsed.url) imageUrl = parsed.url
+                                                        }
+                                                    } catch (e) { }
+                                                    return (
+                                                        <AIImage
+                                                            prompt={prompt}
+                                                            chapterId={currentChapter.id}
+                                                            initialUrl={imageUrl}
+                                                            autoGenerate={plan.mode === 'story'}
+                                                        />
+                                                    )
+                                                })()}
 
                                                 <div className="prose prose-lg prose-gray max-w-none font-serif text-gray-700 leading-relaxed">
                                                     <ReactMarkdown>{currentChapter.explanation}</ReactMarkdown>

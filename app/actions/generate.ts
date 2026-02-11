@@ -94,31 +94,30 @@ export async function generatePlanContent(planId: string) {
     if (existingChapterCount && existingChapterCount > 0) {
         console.log(`[Server] Plan ${planId} already has ${existingChapterCount} chapters. Skipping generation.`);
         // Ensure status is correct just in case
-        if (plan.status !== 'generated') {
-            await supabase.from('learning_plans').update({ status: 'generated' }).eq('id', planId)
+        if (plan.status !== 'structure_ready' && plan.status !== 'generated') {
+            await supabase.from('learning_plans').update({ status: 'structure_ready' }).eq('id', planId)
         }
         return { success: true, message: 'Plan already generated' }
     }
 
-    console.log("Step 2: Generating content for Plan ID:", planId, `Mode: ${mode}`, pdfBase64 ? `(with PDF, ${pdfBase64.length} chars base64)` : '(no document)')
+    console.log("Step 2: Generating CURRICULUM STRUCTURE for Plan ID:", planId, `Mode: ${mode}`, pdfBase64 ? `(with PDF, ${pdfBase64.length} chars base64)` : '(no document)')
 
     // Build prompt based on whether document is provided
-    let systemPrompt = "You are a strict, no-nonsense teacher. Output valid JSON."
+    let systemPrompt = "You are a curriculum architect. Output valid JSON."
     let userPrompt: string
 
     if (mode === 'story') {
         systemPrompt = "You are a master storyteller. Output valid JSON."
         userPrompt = `
-    Create a captivating visual story about: "${topic}"
+    Create a captivating visual story outline about: "${topic}"
     
     Target Audience: ${level} level
     Language: ${language}
     
     Requirements:
     1. Create a continuous narrative split into 10-12 mini-chapters (scenes).
-    2. If the topic is a specific story (e.g., "The Crow and the Dragon"), retell it vividly.
-    3. If the topic is educational (e.g., "Photosynthesis"), invent a character and a journey to explain it through story (e.g., "The Journey of a Photon").
-    4. Each chapter MUST have a "scene_description" for an AI image generator.
+    2. Define the ARC of the story.
+    3. DO NOT write the full story text yet. Just the titles and setting.
     
     Output JSON format:
     {
@@ -128,9 +127,7 @@ export async function generatePlanContent(planId: string) {
         {
           "title": "Scene 1 Title",
           "mental_model": "Scene Setting (Time/Place)", 
-          "key_takeaway": "Plot Point / Core Concept learned",
-          "visual_content": "Vivid image prompt for this scene (no text in image, just description)",
-          "explanation": "The actual story text for this chapter (2-3 paragraphs)." 
+          "key_takeaway": "Plot Point / Core Concept to be covered"
         }
       ],
       "next_steps": ["Related stories", "Advanced topics"]
@@ -139,166 +136,45 @@ export async function generatePlanContent(planId: string) {
     } else if (pdfBase64) {
         // DOCUMENT-BASED: The PDF is the PRIMARY source
         userPrompt = `
-    Analyze the attached PDF document carefully.
+    Analyze the attached PDF document to create a Learning Path Outline.
     
     The user entered: "${topic}"
     
-    ═══════════════════════════════════════════════════════════════
-    INTENT DETECTION (choose EXACTLY ONE - this determines everything)
-    ═══════════════════════════════════════════════════════════════
+    INTENT DETECTION (choose EXACTLY ONE):
+    - LEARNING: User wants to understand concepts (default)
+    - SOLVING: User wants a problem solved/assignment done
+    - PREPARING: User wants quick revision
     
-    SOLVING - User wants you to DO THE WORK and produce a deliverable:
-    Keywords: "solve", "answer", "calculate", "complete", "write", "do", "finish", "assignment", "homework", "help me with", "work on"
-    Examples: "Solve this problem", "Complete this assignment", "Write an essay on...", "Calculate the revenue"
+    CRITICAL: Generate a sequence of 10-12 mini-chapters.
+    - DO NOT generate the full content. Just the structure.
+    - Each chapter must have a clear "title" and "mental_model" (concept/approach).
     
-    PREPARING - User wants quick revision/summary for test/interview:
-    Keywords: "prepare", "revise", "interview", "exam", "test", "review", "remember", "cram", "last minute", "key points"
-    Examples: "Prepare for interview", "Revise for exam", "What to remember for test"
-    
-    LEARNING - User wants to UNDERSTAND concepts (default):
-    Keywords: "explain", "teach", "understand", "what is", "how does", "why", "learn about"
-    Examples: "Explain machine learning", "Teach me about...", "What is quantum physics"
-    
-    DECISION RULES:
-    1. If the PDF contains problems/questions/assignments → SOLVING
-    2. If user says "solve", "answer", "complete", "write", "do this" → SOLVING
-    3. If user mentions exam/interview/test/revision → PREPARING
-    4. If unsure between SOLVING and LEARNING → choose SOLVING (it's more actionable)
-    5. Only choose LEARNING if user explicitly wants to understand/learn concepts
-    
-    Do NOT mix intents. The detected intent controls ALL subsequent output.
-
-    CRITICAL: Generate mini-chapters tailored to the intent using ONLY information from the PDF.
-    - If the PDF does not contain enough information to fully satisfy the request, still produce the best possible chapters from what exists in the PDF, and note missing info in "next_steps".
-
-    IF LEARNING:
-    - Each chapter teaches ONE concept from the document
-    - Simple language, bite-sized learning
-    - Each chapter continues from where the previous left off (logical progression, no jumps)
-    - Include visual cues (diagrams, examples)
-    - Focus on understanding the "why" and "how"
-
-    IF SOLVING OR WRITING AN ASSIGNMENT:
-    ⚠️ CRITICAL: You are NOT making a plan. You ARE writing the actual assignment submission.
-    - Each chapter = ONE COMPLETED SECTION of the assignment answer
-    - key_takeaway = THE ACTUAL WRITTEN CONTENT that would be submitted (not a description of what to write)
-    
-    WRONG vs RIGHT examples:
-    
-    Math/Calculation:
-    - WRONG: "Calculate the total cost"
-    - RIGHT: "Total cost = $150 + $75 + $25 = $250"
-    
-    Business/Product:
-    - WRONG: "Develop a solution to improve the completion rate"
-    - RIGHT: "Solution: Implement 'Long Trip Bonus' - drivers receive 1.5x surge on trips >50 miles, shown upfront before accepting"
-    
-    Analysis:
-    - WRONG: "Analyze the market data and identify trends"
-    - RIGHT: "Market analysis: Long-distance trips grew 23% YoY. Key insight: 68% of cancellations occur within 5 mins of request, suggesting driver hesitancy, not rider issues."
-    
-    Design/Product:
-    - WRONG: "Design a feature to address user needs"
-    - RIGHT: "Feature: 'Trip Preview' screen showing exact route, estimated earnings, and break stops. Mockup: [description of UI elements]"
-    
-    Write the actual answer, not what the answer should contain.
-
-    IF PREPARING:
-    - Each chapter = One key point to remember
-    - Quick, memorable, last-minute revision format
-    - Focus on "what to remember" not "how to understand"
-    - Include mnemonics, quick facts, common mistakes to avoid
-    - Each chapter continues where previous left off (structured coverage, no repetition)
-
-    Context:
-    - Urgency: ${urgency}
-    - Level: ${level}
-    - Language: ${language.charAt(0).toUpperCase() + language.slice(1)} (generate ALL content directly in this language)
-
-    OUTPUT QUALITY RULES:
-    - Keep chapter titles short and specific.
-    - Ensure every chapter has a distinct "mental_model" (analogy/approach/memory trick depending on intent).
-    - Keep "key_takeaway" to 1–2 sentences max, but dense and specific.
-    - "curriculum_strategy" must be exactly 2 sentences, describing how you chose the chapter sequence and how it fits the intent.
-    - "next_steps" must be actionable and specific (3–7 items).
-
-    Output JSON (valid JSON only, no extra text):
+    Output JSON (valid JSON only):
     {
     "intent": "learning" | "solving" | "preparing",
     "curriculum_strategy": "2-sentence approach explanation",
-    "chapters": [{ "title": "...", "mental_model": "...", "key_takeaway": "..." }],
+    "chapters": [{ "title": "...", "mental_model": "...", "key_takeaway": "Brief objective of this chapter" }],
     "next_steps": ["..."]
     }
-
-    Chapter fields based on intent:
-    - LEARNING: title=concept, mental_model=analogy, key_takeaway=key insight
-    - SOLVING: title=step description, mental_model=approach used, key_takeaway=ACTUAL RESULT
-    - PREPARING: title=topic to remember, mental_model=memory trick, key_takeaway=key fact
   `
     } else {
         // TOPIC-BASED: No document, generate from topic alone
         userPrompt = `
-    You are an expert at helping people learn, solve problems, and prepare for challenges.
-
+    You are an expert curriculum designer.
+    
     The user entered: "${topic}"
-
-    ═══════════════════════════════════════════════════════════════
-    INTENT DETECTION (choose EXACTLY ONE - this determines everything)
-    ═══════════════════════════════════════════════════════════════
     
-    SOLVING - User wants you to DO THE WORK:
-    Keywords: "solve", "answer", "calculate", "complete", "write", "do", "finish", "build", "create", "fix", "how to"
-    Examples: "Solve this", "How to build a website", "Write a function for..."
+    Create a 10-12 step Learning Path Outline.
     
-    PREPARING - User wants quick revision for test/interview:
-    Keywords: "prepare", "revise", "interview", "exam", "test", "review", "remember", "cram"
-    Examples: "Prepare for JavaScript interview", "Revise data structures for exam"
+    INTENT DETECTION (choose EXACTLY ONE):
+    - LEARNING: User wants to understand concepts
+    - SOLVING: User wants a problem solved / how-to guide
+    - PREPARING: User wants quick revision
     
-    LEARNING - User wants to UNDERSTAND concepts:
-    Keywords: "explain", "teach", "understand", "what is", "how does", "why", "learn about"
-    Examples: "Explain machine learning", "What is blockchain"
-    
-    DECISION RULES:
-    1. "How to" questions → SOLVING (user wants the actual steps done)
-    2. Build/create/write requests → SOLVING
-    3. Interview/exam/test mentioned → PREPARING
-    4. If unsure between SOLVING and LEARNING → choose SOLVING
-    5. Only LEARNING if explicitly asking to understand concepts
-    
-    Do NOT mix intents. The detected intent controls ALL output.
-
-    Generate mini-chapters tailored to the intent:
-
-    IF LEARNING:
-    - Bite-sized chapters that teach ONE concept at a time
-    - Chapters must progress logically, each continuing from where the previous left off
-    - Use simple language and intuitive visual cues
-    - Focus on explaining the “how” and “why” of the concept
-
-    IF SOLVING OR WRITING AN ASSIGNMENT:
-    ⚠️ CRITICAL: You are NOT giving instructions. You ARE doing the work.
-    - Each chapter = ONE COMPLETED SECTION of the final answer
-    - Chapter title = Section heading (e.g., "Introduction", "Analysis", "Result")
-    - key_takeaway = THE ACTUAL WRITTEN CONTENT (the text, calculation, or answer)
-    - WRONG: "In this step, analyze the data using regression"
-    - RIGHT: "The regression analysis shows y = 2.3x + 4.5, with R² = 0.89"
-    - WRONG: "Calculate the total cost"
-    - RIGHT: "Total cost = $150 + $75 + $25 = $250"
-    - Output should be copy-paste ready for submission
-
-    IF PREPARING:
-    - Each chapter is a high-signal revision point
-    - No deep explanations — only what is essential to remember
-    - Use memorable takeaways, mnemonics, formulas, and common mistakes
-    - Focus on recall speed and accuracy, not conceptual depth
-
-    NOTE:
-    - Ponder deeply about the problem, research well and come with a solid plan
-
-    Context:
-    - Urgency: ${urgency}
-    - Level: ${level}
-    - Language: ${language.charAt(0).toUpperCase() + language.slice(1)} (generate ALL content directly in this language)
+    CRITICAL: Generate ONLY the structure.
+    - "title": Specific chapter title.
+    - "mental_model": The analogy, approach, or setting for this chapter.
+    - "key_takeaway": The one key thing the user will learn/achieve in this chapter.
     
     Output JSON:
     {
@@ -340,14 +216,14 @@ export async function generatePlanContent(planId: string) {
 
     let content: string;
     try {
-        console.time('[Performance] Step 1 (Plan Generation) AI Latency');
+        console.time('[Performance] Step 1 (Structure Generation) AI Latency');
         content = await generateAICompletion({
             messages: messages as AIMessage[],
             jsonMode: true,
         });
-        console.timeEnd('[Performance] Step 1 (Plan Generation) AI Latency');
+        console.timeEnd('[Performance] Step 1 (Structure Generation) AI Latency');
     } catch (e: any) {
-        console.timeEnd('[Performance] Step 1 (Plan Generation) AI Latency');
+        console.timeEnd('[Performance] Step 1 (Structure Generation) AI Latency');
         console.error("AI API Error:", e.message);
         throw new Error(`AI API Error: ${e.message || 'Unknown'}`);
     }
@@ -370,19 +246,11 @@ export async function generatePlanContent(planId: string) {
         throw new Error("AI generated invalid JSON structure: missing chapters")
     }
 
-    // Normalize chapter fields - handle different AI model response formats
+    // Normalize chapter fields
     const normalizeChapter = (ch: any) => {
-        // Extract title from various possible field names
-        const title = ch.title || ch.chapter_title || ch.name || ch.heading ||
-            (typeof ch === 'string' ? ch : 'Untitled Chapter')
-
-        // Extract mental model
-        const mental_model = ch.mental_model || ch.approach || ch.method ||
-            ch.strategy || ch.analogy || ''
-
-        // Extract key takeaway
-        const key_takeaway = ch.key_takeaway || ch.takeaway || ch.summary ||
-            ch.result || ch.conclusion || ch.objective || ''
+        const title = ch.title || ch.chapter_title || ch.name || ch.heading || (typeof ch === 'string' ? ch : 'Untitled Chapter')
+        const mental_model = ch.mental_model || ch.approach || ch.method || ch.strategy || ch.analogy || ''
+        const key_takeaway = ch.key_takeaway || ch.takeaway || ch.summary || ch.result || ch.conclusion || ch.objective || ''
 
         return {
             title: typeof title === 'string' ? title : JSON.stringify(title),
@@ -392,19 +260,20 @@ export async function generatePlanContent(planId: string) {
     }
 
     // 3. Save Chapters (Outline Only)
+    // NOTE: explanation and visual_content are deliberately empty/placeholder to trigger client-side lazy loading
     const chaptersToInsert = parsedData.chapters.map((ch: any, index: number) => {
         const normalized = normalizeChapter(ch)
         return {
             plan_id: plan.id,
             title: normalized.title,
             mental_model: normalized.mental_model,
-            explanation: (mode === 'story' && ch.explanation) ? ch.explanation : "", // Story mode gets content immediately
+            explanation: "", // EMPTY to trigger lazy loading
             common_misconception: "",
             real_world_example: "",
             quiz_question: "",
             quiz_answer: "",
-            visual_type: (mode === 'story' && ch.visual_content) ? 'image' : "text",
-            visual_content: (mode === 'story' && ch.visual_content) ? ch.visual_content : "Content loading...",
+            visual_type: "text",
+            visual_content: "",
             key_takeaway: normalized.key_takeaway,
             order: index + 1,
             is_completed: false
@@ -421,8 +290,9 @@ export async function generatePlanContent(planId: string) {
     }
 
     // 4. Update Plan Status
+    // Use 'structure_ready' to signal client that structure exists but content might be loading
     await supabase.from('learning_plans').update({
-        status: 'generated',
+        status: 'structure_ready',
         next_steps: parsedData.next_steps || []
     }).eq('id', planId)
 

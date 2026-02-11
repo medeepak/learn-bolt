@@ -5,6 +5,7 @@ import { CheckCircle, Circle, Loader2 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import AIImage from './AIImage'
 import MermaidDiagram from './MermaidDiagram'
+import SimpleTable from './SimpleTable'
 
 const MobileChapterCard = ({
     chapter,
@@ -31,26 +32,52 @@ const MobileChapterCard = ({
             {/* Image Section - Fixed Height */}
             {/* FIX: Removed overflow-y-auto on image container if present, added relative overflow-hidden */}
             <div className="h-[45%] bg-gray-50 flex-shrink-0 relative border-b border-gray-100 overflow-hidden">
-                {chapter.visual_type === 'image' ? (
-                    <AIImage
-                        prompt={chapter.visual_content}
-                        autoGenerate={plan.mode === 'story'}
-                        className="w-full h-full"
-                        imgClassName="w-full h-full object-cover transform hover:scale-105 transition-transform duration-700"
-                    />
-                ) : chapter.visual_content ? (
-                    <div className="w-full h-full overflow-auto flex items-center justify-center bg-gray-50/50 p-4">
-                        {chapter.visual_type === 'mermaid' ? (
-                            <MermaidDiagram chart={chapter.visual_content} />
-                        ) : (
-                            <div className="text-sm text-gray-500 italic text-center p-6">{chapter.visual_content}</div>
-                        )}
-                    </div>
-                ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-300 bg-gray-50">
-                        <Circle className="w-12 h-12 opacity-20" />
-                    </div>
-                )}
+                {(() => {
+                    // Helper to parse visual content which might be JSON (prompt + url) or just string (prompt)
+                    let prompt = chapter.visual_content
+                    let imageUrl = null
+
+                    if (chapter.visual_type === 'image' && chapter.visual_content) {
+                        try {
+                            if (chapter.visual_content.trim().startsWith('{')) {
+                                const parsed = JSON.parse(chapter.visual_content)
+                                if (parsed.prompt) prompt = parsed.prompt
+                                if (parsed.url) imageUrl = parsed.url
+                            }
+                        } catch (e) { }
+                    }
+
+                    if (chapter.visual_type === 'image') {
+                        return (
+                            <AIImage
+                                prompt={prompt}
+                                chapterId={chapter.id}
+                                initialUrl={imageUrl}
+                                autoGenerate={plan.mode === 'story'}
+                                className="w-full h-full"
+                                imgClassName="w-full h-full object-cover transform hover:scale-105 transition-transform duration-700"
+                            />
+                        )
+                    } else if (chapter.visual_content) {
+                        return (
+                            <div className="w-full h-full overflow-auto flex items-center justify-center bg-gray-50/50 p-4">
+                                {chapter.visual_type === 'mermaid' ? (
+                                    <MermaidDiagram chart={chapter.visual_content} />
+                                ) : chapter.visual_type === 'react' ? (
+                                    <SimpleTable dataStr={chapter.visual_content} />
+                                ) : (
+                                    <div className="text-sm text-gray-500 italic text-center p-6">{chapter.visual_content}</div>
+                                )}
+                            </div>
+                        )
+                    } else {
+                        return (
+                            <div className="w-full h-full flex items-center justify-center text-gray-300 bg-gray-50">
+                                <Circle className="w-12 h-12 opacity-20" />
+                            </div>
+                        )
+                    }
+                })()}
 
                 {/* Badge Overlay */}
                 <div className="absolute top-4 right-4 z-10 flex gap-2">

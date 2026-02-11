@@ -6,16 +6,20 @@ import { generateImage } from '@/app/actions/image'
 
 const AIImage = ({
     prompt,
+    chapterId,
+    initialUrl,
     autoGenerate = false,
     className = "",
     imgClassName = "w-full h-full object-cover"
 }: {
     prompt: string | null,
+    chapterId?: string,
+    initialUrl?: string | null,
     autoGenerate?: boolean,
     className?: string,
     imgClassName?: string
 }) => {
-    const [imageUrl, setImageUrl] = useState<string | null>(null)
+    const [imageUrl, setImageUrl] = useState<string | null>(initialUrl || null)
     const [loading, setLoading] = useState(false)
     const [touched, setTouched] = useState(false)
 
@@ -32,7 +36,7 @@ const AIImage = ({
         setTouched(true)
 
         try {
-            const res = await generateImage(prompt)
+            const res = await generateImage(prompt, chapterId)
             if (res && res.success && res.url) {
                 setImageUrl(res.url)
             } else {
