@@ -5,6 +5,9 @@ import { generateAICompletion, getAIProvider, type AIMessage } from '@/lib/ai-cl
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 
+// Allow up to 5 minutes for generation (if platform permits, otherwise cap at 60s for Hobby)
+export const maxDuration = 300;
+
 export async function generateLearningPlan(formData: FormData) {
     console.log('[Server] generateLearningPlan called')
     console.log('[Server] FormData keys:', Array.from(formData.keys()))
@@ -78,6 +81,23 @@ export async function generatePlanContent(planId: string) {
 
     const { topic, urgency, level, language, document_context, mode } = plan
     const pdfBase64 = document_context as string | null
+
+    // IDEMPOTENCY CHECK: If chapters already exist, don't re-generate.
+    // This handles race conditions where the client might trigger this multiple times,
+    // or if the plan was generated but status update failed.
+    const { count: existingChapterCount } = await supabase
+        .from('chapters')
+        .select('*', { count: 'exact', head: true })
+        .eq('plan_id', planId)
+
+    if (existingChapterCount && existingChapterCount > 0) {
+        console.log(`[Server] Plan ${planId} already has ${existingChapterCount} chapters. Skipping generation.`);
+        // Ensure status is correct just in case
+        if (plan.status !== 'generated') {
+            await supabase.from('learning_plans').update({ status: 'generated' }).eq('id', planId)
+        }
+        return { success: true, message: 'Plan already generated' }
+    }
 
     console.log("Step 2: Generating content for Plan ID:", planId, `Mode: ${mode}`, pdfBase64 ? `(with PDF, ${pdfBase64.length} chars base64)` : '(no document)')
 
