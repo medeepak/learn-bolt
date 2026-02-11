@@ -64,7 +64,7 @@ const AIImage = ({
                     Generating...
                 </div>
             ) : imageUrl ? (
-                <img src={imageUrl} alt="AI illustration" className={imgClassName} />
+                <img src={imageUrl} alt="AI illustration" className={imgClassName} crossOrigin="anonymous" />
             ) : (
                 <div className="w-full h-full min-h-[16rem] bg-rose-50 text-rose-500 text-sm flex items-center justify-center p-4 text-center">
                     Failed to load image. Only prompts.

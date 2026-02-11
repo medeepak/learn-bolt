@@ -11,6 +11,7 @@ import AIImage from '@/components/plan/AIImage'
 import MermaidDiagram from '@/components/plan/MermaidDiagram'
 import MobileChapterCard from '@/components/plan/MobileChapterCard'
 import SimpleTable from '@/components/plan/SimpleTable'
+import PDFExporter from '@/components/plan/PDFExporter'
 
 const useScrollSpy = (
     refs: React.MutableRefObject<(HTMLElement | null)[]>,
@@ -277,10 +278,15 @@ export default function PlanClient({ plan, chapters: serverChapters }: { plan: a
                             Back to Home
                         </Link>
                         <h1 className="font-bold text-xl mb-2 text-gray-900 leading-tight">{plan.topic}</h1>
-                        <div className="flex gap-2 text-xs text-gray-500 uppercase tracking-wider font-medium">
-                            <span>{plan.level}</span>
-                            <span>•</span>
-                            <span>{plan.urgency}</span>
+                        <div className="flex flex-col gap-2 text-xs text-gray-500 uppercase tracking-wider font-medium">
+                            <div className="flex gap-2">
+                                <span>{plan.level}</span>
+                                <span>•</span>
+                                <span>{plan.urgency}</span>
+                            </div>
+                            <div className="mt-4">
+                                <PDFExporter plan={plan} chapters={chapters} />
+                            </div>
                         </div>
                     </div>
                     {/* ... Chapter List ... */}
