@@ -5,7 +5,7 @@ import { CheckCircle, Circle, ChevronRight, ChevronLeft, Loader2 } from 'lucide-
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { generateLearningPlan, generatePlanContent, generateEnglishContent } from '../../actions/generate'
+import { generateLearningPlan, generatePlanContent, generateEnglishContent, getPlanStatus } from '../../actions/generate'
 import ReactMarkdown from 'react-markdown'
 import AIImage from '@/components/plan/AIImage'
 import MermaidDiagram from '@/components/plan/MermaidDiagram'
@@ -79,23 +79,40 @@ export default function PlanClient({ plan, chapters: serverChapters }: { plan: a
         })
     }, [serverChapters])
 
-    // Initialization Logic (same as before)
+    // Polling Logic for Reliability
+    useEffect(() => {
+        if (chapters.length === 0 && plan.status === 'generating') {
+            const interval = setInterval(async () => {
+                try {
+                    const { status, chapterCount } = await getPlanStatus(plan.id)
+                    if (chapterCount > 0 || (status && status !== 'generating')) {
+                        console.log("Plan updated. Refreshing...")
+                        router.refresh()
+                    }
+                } catch (e) {
+                    console.error("Poll failed", e)
+                }
+            }, 3000)
+
+            return () => clearInterval(interval)
+        }
+    }, [chapters.length, plan.status, plan.id, router])
+
+    // Initialization Logic (Trigger generation if needed)
     useEffect(() => {
         if (chapters.length === 0 && plan.status === 'generating') {
             const init = async () => {
                 try {
                     setInitializing(true)
-                    const res = await generatePlanContent(plan.id) // Updated to include document context
+                    // Trigger generation - outcome isn't critical if polling picks it up
+                    // But we still await it to handle instant success
+                    const res = await generatePlanContent(plan.id)
                     if (res.success) {
-                        // router.refresh() 
-                        // We rely on local state updates if possible, or we trigger a reload. 
-                        // Actually for INIT we might want a refresh to get the chapters if we didn't have them?
-                        // generatePlanContent creates chapters. We need to fetch them.
-                        // So router.refresh() IS needed here if we don't fetch them manually.
                         router.refresh()
                     }
                 } catch (e: any) {
-                    console.error("Init Failed", e)
+                    console.error("Init Failed (Background process may still succeed)", e)
+                    // Do NOT setInitializing(false) here, let polling handle it
                 }
             }
             init()

@@ -73,6 +73,26 @@ export async function generateLearningPlan(formData: FormData) {
     return { success: true, planId: plan.id }
 }
 
+export async function getPlanStatus(planId: string) {
+    const supabase = await createClient()
+    const { data: plan } = await supabase
+        .from('learning_plans')
+        .select('status, chapters(count)')
+        .eq('id', planId)
+        .single()
+
+    // Check real chapter count
+    const { count } = await supabase
+        .from('chapters')
+        .select('*', { count: 'exact', head: true })
+        .eq('plan_id', planId)
+
+    return {
+        status: plan?.status,
+        chapterCount: count || 0
+    }
+}
+
 export async function generatePlanContent(planId: string) {
     const supabase = await createClient()
 
@@ -110,6 +130,7 @@ export async function generatePlanContent(planId: string) {
         systemPrompt = "You are a master storyteller. Output valid JSON."
         userPrompt = `
     Create a captivating visual story outline about: "${topic}"
+    ${pdfBase64 ? '(Base the story on the attached document)' : ''}
     
     Target Audience: ${level} level
     Language: ${language}
@@ -426,6 +447,7 @@ export async function generateEnglishContent(chapterId: string) {
         messages.push({ role: "user", content: prompt })
     }
 
+    console.log(`[Server] Generating content for ${chapterId}. Plan: ${topic}, Level: ${level}, Language: ${language}`)
     console.time(`[Performance] Step 2 (Content Generation) AI Latency for ${chapterId}`);
     const content = await generateAICompletion({
         messages,
@@ -472,7 +494,7 @@ export async function generateEnglishContent(chapterId: string) {
         }
         // Try to recover partial JSON if possible using regex
         // Or just fail gracefully with a clearer message
-        throw new Error(`Invalid JSON from AI: ${e.message}`)
+        throw new Error(`Invalid JSON from AI: ${e.message} - RAW: ${content?.substring(0, 100)}...`)
     }
 
     // Save English Content

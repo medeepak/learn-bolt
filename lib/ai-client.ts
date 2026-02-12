@@ -92,12 +92,22 @@ async function generateGeminiCompletion(messages: AIMessage[], jsonMode: boolean
         }
     }
 
-    const result = await model.generateContent({
-        systemInstruction,
-        contents: [{ role: 'user', parts }],
-    })
-
-    return result.response.text()
+    try {
+        const result = await model.generateContent({
+            systemInstruction,
+            contents: [{ role: 'user', parts }],
+        })
+        const text = result.response.text()
+        console.log(`[Gemini] Response length: ${text.length}`)
+        return text
+    } catch (e: any) {
+        console.error("[Gemini] API Error:", e.message)
+        // Log full error object if possible
+        if (e.response) {
+            console.error("[Gemini] API Response Error:", JSON.stringify(e.response, null, 2))
+        }
+        throw e
+    }
 }
 
 /**
