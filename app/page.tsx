@@ -15,7 +15,7 @@ function HomeContent() {
   const [topic, setTopic] = useState('')
   const [urgency, setUrgency] = useState('2h')
   const [level, setLevel] = useState('beginner')
-  const [mode, setMode] = useState('standard')
+  const [mode, setMode] = useState('story')
   const [language, setLanguage] = useState('english')
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState('')
@@ -118,8 +118,32 @@ function HomeContent() {
             </h1>
             <p className="text-lg text-gray-500 max-w-lg mx-auto leading-relaxed">
               Just-in-time learning plans for when you don&apos;t have time for a course.
-              Visual, concise, and ready in minutes.
             </p>
+          </div>
+
+
+          {/* Mode Toggle - Moved Above Input */}
+          <div className="flex justify-center mb-4 !mt-2">
+            <div className="flex bg-gray-100 p-1 rounded-xl items-center shadow-inner">
+              <button
+                onClick={() => setMode('story')}
+                className={`px-6 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${mode === 'story'
+                  ? 'bg-white text-gray-900 shadow-sm scale-105'
+                  : 'text-gray-500 hover:text-gray-900'
+                  }`}
+              >
+                Story Mode
+              </button>
+              <button
+                onClick={() => setMode('standard')}
+                className={`px-6 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${mode === 'standard'
+                  ? 'bg-white text-gray-900 shadow-sm scale-105'
+                  : 'text-gray-500 hover:text-gray-900'
+                  }`}
+              >
+                Course Mode
+              </button>
+            </div>
           </div>
 
           {/* Input Card */}
@@ -165,17 +189,7 @@ function HomeContent() {
               </select>
             </div>
 
-            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-gray-200 text-gray-600">
-              <span className="text-gray-400 text-sm">🎨</span>
-              <select
-                value={mode}
-                onChange={(e) => setMode(e.target.value)}
-                className="bg-transparent focus:outline-none cursor-pointer appearance-none pr-2 hover:text-gray-900"
-              >
-                <option value="standard">Standard Lesson</option>
-                <option value="story">Visual Story</option>
-              </select>
-            </div>
+
 
             <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-gray-200 text-gray-600">
               <BookOpen className="w-4 h-4 text-gray-400" />
