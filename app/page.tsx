@@ -1,15 +1,14 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo, useEffect, Suspense } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowRight, Clock, Zap, BookOpen, Search, User, FileUp, X } from 'lucide-react'
+import { ArrowRight, Clock, BookOpen, Search, User, FileUp, X } from 'lucide-react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { generateLearningPlan } from './actions/generate'
-import { useEffect } from 'react'
-
-import { Suspense } from 'react'
+import suggestedTopics from '@/public/suggested-topics.json'
 
 function HomeContent() {
   const [topic, setTopic] = useState('')
@@ -88,7 +87,7 @@ function HomeContent() {
       {/* Header */}
       <header className="px-6 py-4 flex justify-between items-center border-b border-gray-100 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="flex items-center gap-2 font-semibold text-xl tracking-tight text-gray-900">
-          <Zap className="w-5 h-5 text-amber-500 fill-amber-500" />
+          <Image src="/logo.png" alt="Tiny Lessons Logo" width={32} height={32} className="w-8 h-8 object-contain" />
           <span>Tiny Lessons</span>
         </div>
         <nav className="flex items-center gap-6">
@@ -252,21 +251,55 @@ function HomeContent() {
             </div>
           </div>
 
-          {/* Examples */}
-          <div className="pt-8 flex flex-wrap justify-center gap-3">
-            <span className="text-gray-400 text-sm py-1">Try:</span>
-            {['Restaurant cash flow', 'React useEffect hook', 'Series A funding'].map((ex) => (
-              <button
-                key={ex}
-                onClick={() => setTopic(ex)}
-                className="text-sm px-3 py-1 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
-              >
-                {ex}
-              </button>
-            ))}
-          </div>
+          {/* Suggested Reading Cards */}
+          <SuggestedReading />
         </motion.div>
       </main>
+    </div>
+  )
+}
+
+function SuggestedReading() {
+  const router = useRouter()
+
+  const picks = useMemo(() => {
+    const shuffled = [...suggestedTopics].sort(() => Math.random() - 0.5)
+    return shuffled.slice(0, 3)
+  }, [])
+
+  return (
+    <div className="pt-8">
+      <p className="text-gray-400 text-sm mb-4 text-center">✨ Try one of these</p>
+      <div className="flex flex-wrap justify-center gap-4">
+        {picks.map((topic) => (
+          <button
+            key={topic.planId}
+            onClick={() => router.push(`/plan/${topic.planId}`)}
+            className="group relative w-44 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 cursor-pointer border border-gray-100 bg-white focus:outline-none"
+          >
+            {/* Thumbnail */}
+            <div className="relative w-44 h-28">
+              <Image
+                src={topic.thumbnail}
+                alt={topic.title}
+                fill
+                className="object-cover"
+                sizes="176px"
+              />
+              {/* Gradient overlay */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
+            </div>
+            {/* Title overlay */}
+            <div className="absolute bottom-0 left-0 right-0 p-2.5">
+              <p className="text-white text-xs font-semibold leading-snug text-left drop-shadow-md">
+                {topic.title}
+              </p>
+            </div>
+            {/* Hover shine */}
+            <div className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-colors duration-300 rounded-2xl" />
+          </button>
+        ))}
+      </div>
     </div>
   )
 }

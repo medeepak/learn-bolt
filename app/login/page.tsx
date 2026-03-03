@@ -1,11 +1,11 @@
-import { Zap } from 'lucide-react'
+import Image from 'next/image'
 import Link from 'next/link'
 
 export default function LoginPage() {
     return (
         <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gray-50">
             <Link href="/" className="flex items-center gap-2 font-semibold text-xl tracking-tight text-gray-900 mb-8">
-                <Zap className="w-6 h-6 text-amber-500 fill-amber-500" />
+                <Image src="/logo.png" alt="Tiny Lessons Logo" width={40} height={40} className="w-10 h-10 object-contain" />
                 <span>Tiny Lessons</span>
             </Link>
 

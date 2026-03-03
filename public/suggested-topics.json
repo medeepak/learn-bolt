@@ -1,0 +1,32 @@
+[
+  {
+    "title": "🧠 Brain Tricks You",
+    "thumbnail": "/thumbnails/brain-tricks.png",
+    "planId": "aceef310-8037-44bc-9264-e14a4c81ea8c"
+  },
+  {
+    "title": "🌌 Weird Universe",
+    "thumbnail": "/thumbnails/weird-universe.png",
+    "planId": "7627f470-6a94-4915-9ace-319366ad5b9e"
+  },
+  {
+    "title": "💰 Money Secrets",
+    "thumbnail": "/thumbnails/money-secrets.png",
+    "planId": "faeaabe6-5cb6-4e2a-ade0-3748d7896365"
+  },
+  {
+    "title": "The Future of Humans",
+    "thumbnail": "/thumbnails/future-humans.png",
+    "planId": "7a39b611-db76-4cf6-946b-1d158de48bb4"
+  },
+  {
+    "title": "How Games Hack Your Brain",
+    "thumbnail": "/thumbnails/games-brain.png",
+    "planId": "c7d84a9f-9f00-4312-81a8-25fb0cf8aac9"
+  },
+  {
+    "title": "Read People Better Like a Book",
+    "thumbnail": "/thumbnails/read-people.png",
+    "planId": "b2d79563-9e58-42c7-a9c5-6ad9bd5997d5"
+  }
+]
