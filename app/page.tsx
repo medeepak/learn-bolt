@@ -261,21 +261,28 @@ function HomeContent() {
 
 function SuggestedReading() {
   const router = useRouter()
+  const [loadingId, setLoadingId] = useState<string | null>(null)
 
   const picks = useMemo(() => {
     const shuffled = [...suggestedTopics].sort(() => Math.random() - 0.5)
     return shuffled.slice(0, 3)
   }, [])
 
+  const handleClick = (planId: string) => {
+    setLoadingId(planId)
+    router.push(`/plan/${planId}`)
+  }
+
   return (
     <div className="pt-8">
-      <p className="text-gray-400 text-sm mb-4 text-center">✨ Try one of these</p>
+      <p className="text-gray-400 text-sm mb-4 text-center">🔥 Trending topics</p>
       <div className="flex flex-wrap justify-center gap-4">
         {picks.map((topic) => (
           <button
             key={topic.planId}
-            onClick={() => router.push(`/plan/${topic.planId}`)}
-            className="group relative w-44 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 cursor-pointer border border-gray-100 bg-white focus:outline-none"
+            onClick={() => handleClick(topic.planId)}
+            disabled={loadingId !== null}
+            className="group relative w-44 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 cursor-pointer border border-gray-100 bg-white focus:outline-none disabled:cursor-default"
           >
             {/* Thumbnail */}
             <div className="relative w-44 h-28">
@@ -297,6 +304,15 @@ function SuggestedReading() {
             </div>
             {/* Hover shine */}
             <div className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-colors duration-300 rounded-2xl" />
+            {/* Loading overlay */}
+            {loadingId === topic.planId && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-2xl">
+                <svg className="animate-spin w-6 h-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                </svg>
+              </div>
+            )}
           </button>
         ))}
       </div>
